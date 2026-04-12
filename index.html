@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LKN Sistemes — Gestió de Comandes</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0efe9;
+    --border: #e0ddd4;
+    --border2: #c8c5bb;
+    --text: #1a1916;
+    --text2: #6b6860;
+    --text3: #9b9890;
+    --accent: #1a1916;
+    --accent-bg: #f0efe9;
+    --info: #1a5fa8;
+    --info-bg: #e8f0fb;
+    --info-border: #b5d0f0;
+    --warn: #a06010;
+    --warn-bg: #fef3e2;
+    --warn-border: #f5c870;
+    --success: #1a6e3a;
+    --success-bg: #e8f5ee;
+    --success-border: #8fd4aa;
+    --danger: #a02020;
+    --danger-bg: #fdeaea;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.5; }
+
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 1.5rem; height: 52px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .topbar-logo { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+  .topbar-logo span { color: var(--text2); font-weight: 400; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .api-status { font-size: 12px; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); cursor: pointer; transition: all 0.15s; }
+  .api-status:hover { border-color: var(--border2); }
+  .api-status.ok { border-color: var(--success-border); background: var(--success-bg); color: var(--success); }
+
+  .main { max-width: 820px; margin: 0 auto; padding: 1.5rem; }
+
+  .step { display: none; }
+  .step.active { display: block; }
+
+  /* API KEY MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 200; display: flex; align-items: center; justify-content: center; }
+  .modal-overlay.hidden { display: none; }
+  .modal { background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--border); padding: 1.5rem; width: 420px; max-width: 90vw; }
+  .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 0.5rem; }
+  .modal p { font-size: 13px; color: var(--text2); margin-bottom: 1rem; line-height: 1.6; }
+  .modal input { width: 100%; padding: 8px 12px; border: 1px solid var(--border2); border-radius: var(--radius); font-size: 13px; font-family: monospace; background: var(--surface2); color: var(--text); margin-bottom: 1rem; }
+  .modal input:focus { outline: none; border-color: var(--info); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* BUTTONS */
+  .btn { padding: 7px 16px; border-radius: var(--radius); border: 1px solid var(--border2); background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; transition: all 0.12s; font-family: inherit; }
+  .btn:hover { background: var(--surface2); }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--text); color: var(--surface); border-color: var(--text); }
+  .btn-primary:hover { opacity: 0.85; background: var(--text); }
+  .btn-success { background: var(--success-bg); color: var(--success); border-color: var(--success-border); font-weight: 500; }
+  .btn-success:hover { opacity: 0.85; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn-danger-ghost { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; }
+  .btn-danger-ghost:hover { color: var(--danger); background: var(--danger-bg); }
+
+  /* SCENARIO SELECTOR */
+  .scenario-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.25rem; }
+  .sc-btn { padding: 0.875rem 1rem; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface); cursor: pointer; transition: all 0.15s; text-align: left; }
+  .sc-btn:hover { border-color: var(--border2); background: var(--surface2); }
+  .sc-btn.active { border: 2px solid var(--info); background: var(--info-bg); }
+  .sc-num { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 3px; }
+  .sc-btn.active .sc-num { color: var(--info); }
+  .sc-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .sc-desc { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+  /* COEF BOX */
+  .coef-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 0.875rem 1rem; margin-bottom: 1.25rem; display: none; }
+  .coef-box.visible { display: block; }
+  .coef-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+  .coef-row input { width: 90px; padding: 5px 8px; border: 1px solid var(--border2); border-radius: var(--radius); font-size: 13px; background: var(--surface2); color: var(--text); }
+  .coef-row input:focus { outline: none; border-color: var(--info); }
+  .coef-preview { font-size: 12px; color: var(--text2); }
+
+  /* DROPZONE */
+  .dropzone { border: 2px dashed var(--border2); border-radius: var(--radius-lg); padding: 2.5rem 1rem; text-align: center; cursor: pointer; transition: all 0.15s; background: var(--surface); }
+  .dropzone:hover, .dropzone.drag { border-color: var(--info); background: var(--info-bg); }
+  .dz-icon { font-size: 36px; margin-bottom: 0.75rem; }
+  .dz-title { font-size: 15px; font-weight: 500; margin-bottom: 0.25rem; }
+  .dz-sub { font-size: 13px; color: var(--text2); }
+
+  /* PROGRESS */
+  .progress-wrap { margin: 1rem 0; display: none; }
+  .progress-wrap.visible { display: block; }
+  .progress-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--info); border-radius: 2px; transition: width 0.3s ease; }
+  .progress-msg { font-size: 12px; color: var(--text2); text-align: center; margin-top: 6px; }
+
+  /* CARD */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .card-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); margin-bottom: 0.75rem; }
+
+  /* FIELD GRID */
+  .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field label { font-size: 11px; color: var(--text2); }
+  .field input, .field select, .field textarea {
+    padding: 6px 10px; border: 1px solid var(--border2); border-radius: var(--radius);
+    font-size: 13px; background: var(--surface2); color: var(--text); font-family: inherit;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--info); background: var(--surface); }
+
+  /* ADDR CHIPS */
+  .addr-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .addr-chip { font-size: 12px; padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); cursor: pointer; background: var(--surface2); color: var(--text2); transition: all 0.12s; }
+  .addr-chip:hover { border-color: var(--border2); }
+  .addr-chip.sel { border: 1.5px solid var(--info); background: var(--info-bg); color: var(--info); }
+
+  /* PETTINAROLI */
+  .pett-box { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: var(--radius); padding: 0.75rem 1rem; margin-bottom: 0.75rem; }
+  .pett-title { font-size: 12px; font-weight: 600; color: var(--warn); margin-bottom: 0.5rem; }
+  .pett-opts { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .radio-opt { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); cursor: pointer; }
+  .pett-input-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .pett-input-row input { width: 90px; padding: 4px 8px; border: 1px solid var(--border2); border-radius: var(--radius); font-size: 13px; background: var(--surface); color: var(--text); }
+  .pett-auto-msg { font-size: 12px; color: var(--warn); margin-top: 6px; }
+
+  /* LINES TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text3); padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+  td { padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  td input { width: 100%; padding: 4px 6px; border: 1px solid transparent; border-radius: 4px; font-size: 13px; background: transparent; color: var(--text); font-family: inherit; }
+  td input:hover { border-color: var(--border); background: var(--surface2); }
+  td input:focus { outline: none; border-color: var(--info); background: var(--surface); }
+  .buy-price { font-weight: 500; color: var(--text); white-space: nowrap; }
+  .disc-val { font-size: 12px; color: var(--text2); }
+
+  /* SUMMARY */
+  .summary-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+  .summary-row:last-child { border-bottom: none; font-weight: 600; font-size: 14px; }
+
+  /* BADGE */
+  .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; margin-left: 6px; }
+  .badge-info { background: var(--info-bg); color: var(--info); border: 1px solid var(--info-border); }
+  .badge-warn { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
+  .badge-success { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+
+  /* ACTIONS BAR */
+  .actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 1rem; }
+  .actions-note { font-size: 12px; color: var(--text2); flex: 1; }
+
+  /* DONE */
+  .done-wrap { text-align: center; padding: 2.5rem 1rem; }
+  .done-icon { font-size: 48px; margin-bottom: 1rem; }
+  .done-title { font-size: 18px; font-weight: 600; margin-bottom: 0.25rem; }
+  .done-sub { font-size: 13px; color: var(--text2); margin-bottom: 1.5rem; }
+
+  /* HEADER */
+  .step-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+  .step-title { font-size: 16px; font-weight: 600; }
+
+  /* NOTICE */
+  .notice { font-size: 12px; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; margin-bottom: 1rem; line-height: 1.6; }
+  .notice.warn { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn); }
+
+  @media (max-width: 600px) {
+    .field-grid, .field-grid-3, .scenario-grid { grid-template-columns: 1fr; }
+    .main { padding: 1rem; }
+  }
+
+  /* HISTORY & MAP MODALS */
+  .modal-lg { width: 680px; max-width: 95vw; max-height: 85vh; overflow-y: auto; }
+  .hist-item { padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+  .hist-item:hover { background: var(--surface2); }
+  .hist-item:last-child { border-bottom: none; }
+  .hist-date { font-size: 11px; color: var(--text3); }
+  .hist-client { font-size: 13px; font-weight: 500; }
+  .hist-detail { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .hist-search { width: 100%; padding: 8px 12px; border: 1px solid var(--border2); border-radius: var(--radius); font-size: 13px; margin-bottom: 10px; background: var(--surface2); color: var(--text); }
+  .hist-search:focus { outline: none; border-color: var(--info); }
+  .hist-empty { text-align: center; padding: 2rem; color: var(--text3); font-size: 13px; }
+  .map-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; align-items: center; }
+  .map-row:last-child { border-bottom: none; }
+  .map-header { font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
+  .map-count { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+  .save-map-bar { background: var(--info-bg); border: 1px solid var(--info-border); border-radius: var(--radius); padding: 8px 12px; margin-top: 8px; font-size: 12px; color: var(--info); display: flex; align-items: center; justify-content: space-between; }
+
+</style>
+</head>
+<body>
+
+<!-- API key ara viu al Worker de Cloudflare -->
+
+<!-- HISTORY MODAL -->
+<div class="modal-overlay hidden" id="modal-history">
+  <div class="modal modal-lg">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+      <h2>Historial de comandes</h2>
+      <button class="btn btn-sm" onclick="document.getElementById('modal-history').classList.add('hidden')">Tancar</button>
+    </div>
+    <input class="hist-search" id="hist-search" placeholder="Cerca per client, referència..." oninput="filterHistory()">
+    <div id="hist-list"></div>
+    <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-sm" onclick="exportHistory()" title="Exportar CSV">📥 Exportar CSV</button>
+      <button class="btn btn-sm" style="color:var(--danger);" onclick="if(confirm('Esborrar tot l\'historial?')){saveHistory([]);kvSync.push('history');showHistoryModal();}">Esborrar tot</button>
+    </div>
+  </div>
+</div>
+
+<!-- CODE MAP MODAL -->
+<div class="modal-overlay hidden" id="modal-map">
+  <div class="modal modal-lg">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+      <h2>Taula de correspondències</h2>
+      <button class="btn btn-sm" onclick="document.getElementById('modal-map').classList.add('hidden')">Tancar</button>
+    </div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:8px;">Correspondències entre codis de client i codis LKN. Es creen automàticament en aprovar comandes.</p>
+    <input class="hist-search" id="map-search" placeholder="Cerca per codi o client..." oninput="filterMap()">
+    <div class="map-count" id="map-count"></div>
+    <div id="map-list"></div>
+    <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-sm" onclick="exportMap()">📥 Exportar CSV</button>
+      <button class="btn btn-sm" style="color:var(--danger);" onclick="if(confirm('Esborrar tota la taula de correspondències?')){saveCodeMap({});kvSync.push('codes');showMapModal();}">Esborrar tot</button>
+    </div>
+  </div>
+</div>
+
+<div class="topbar">
+  <div class="topbar-logo">LKN Sistemes <span>— Gestió de Comandes</span></div>
+  <div class="topbar-right">
+    <div class="api-status" id="map-btn" onclick="showMapModal()" title="Taula de correspondències">🔗 Codis</div>
+    <div class="api-status" id="hist-btn" onclick="showHistoryModal()" title="Historial de comandes">📋 Historial</div>
+    <div class="api-status" id="sync-indicator" style="cursor:default;"><span id="sync-status">● Connectat</span></div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- STEP 1: UPLOAD -->
+  <div class="step active" id="step-upload">
+    <div class="step-header">
+      <div class="step-title">Nova comanda</div>
+    </div>
+
+    <div class="scenario-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+      <div class="sc-btn active" id="sc-btn-1" onclick="selectScenario(1)">
+        <div class="sc-num">Escenari 1</div>
+        <div class="sc-name">Control de costos — Terrendis</div>
+        <div class="sc-desc">Proveïdor fix</div>
+      </div>
+      <div class="sc-btn" id="sc-btn-2" onclick="selectScenario(2)">
+        <div class="sc-num">Escenari 2</div>
+        <div class="sc-name">Control de costos — Multi prov.</div>
+        <div class="sc-desc">Proveïdor per pestanya</div>
+      </div>
+      <div class="sc-btn" id="sc-btn-3" onclick="selectScenario(3)">
+        <div class="sc-num">Escenari 3</div>
+        <div class="sc-name">Control de costos — Multi prov.</div>
+        <div class="sc-desc">Proveïdor per pestanya (alt.)</div>
+      </div>
+      <div class="sc-btn" id="sc-btn-4" onclick="selectScenario(4)">
+        <div class="sc-num">Escenari 4</div>
+        <div class="sc-name">Agent comercial</div>
+        <div class="sc-desc">Preu tancat + coeficient</div>
+      </div>
+      <div class="sc-btn" id="sc-btn-5" onclick="selectScenario(5)">
+        <div class="sc-num">Escenari 5</div>
+        <div class="sc-name">Johnson Controls</div>
+        <div class="sc-desc">Preu tancat · Pettinaroli · Ports auto</div>
+      </div>
+    </div>
+
+    <div class="coef-box visible" id="excel-box">
+      <div class="card-label">Excel Control de Costos</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Carrega l'Excel del control de costos per creuar preus i proveïdors automàticament.</div>
+      <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" style="font-size:13px;">
+      <div id="excel-status" style="font-size:12px;margin-top:6px;color:var(--text3);"></div>
+    </div>
+
+    <div class="coef-box" id="coef-box">
+      <div class="card-label">Coeficient de compra</div>
+      <div class="coef-row">
+        <span style="font-size:13px;color:var(--text2);">Preu compra = preu venda ×</span>
+        <input type="number" id="coef-val" step="0.001" min="0.001" max="0.999" value="0.890" oninput="updateCoefPreview()">
+        <span class="coef-preview" id="coef-preview">= 89,0% del preu de venda</span>
+      </div>
+    </div>
+
+    <div class="dropzone" id="dropzone"
+      onclick="document.getElementById('file-input').click()"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleDrop(event)">
+      <div class="dz-icon">📄</div>
+      <div class="dz-title">Arrossega el PDF de la comanda aquí</div>
+      <div class="dz-sub">o clica per seleccionar el fitxer</div>
+    </div>
+    <input type="file" id="file-input" accept=".pdf" style="display:none" onchange="handleFile(this.files[0])">
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-msg" id="progress-msg">Extraient dades del PDF...</div>
+    </div>
+  </div>
+
+  <!-- STEP 2: VALIDATE -->
+  <div class="step" id="step-validate">
+    <div class="step-header">
+      <div>
+        <span class="step-title">Validació</span>
+        <span class="badge" id="sc-badge">Escenari 1</span>
+      </div>
+      <button class="btn btn-sm" onclick="togglePdfPreview()" id="pdf-preview-btn" style="display:none;">👁 Veure PDF</button>
+      <button class="btn btn-sm" onclick="resetAll()">← Nova comanda</button>
+    </div>
+
+    <div id="pdf-preview-wrap" style="display:none;margin-bottom:1rem;">
+      <iframe id="pdf-preview-frame" style="width:100%;height:400px;border:1px solid var(--border);border-radius:var(--radius);"></iframe>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Capçalera de la comanda</div>
+      <div class="field-grid">
+        <div class="field"><label>Codi client A3</label><input type="text" id="v-code" placeholder="Codi a A3..."></div>
+        <div class="field"><label>Nom client</label><input type="text" id="v-name"></div>
+        <div class="field"><label>Referència comanda client</label><input type="text" id="v-ref"></div>
+        <div class="field"><label>Núm. pressupost LKN</label><input type="text" id="v-budget"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Adreça d'entrega</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Detectada al PDF:</div>
+      <div style="font-size:13px;font-weight:500;margin-bottom:8px;" id="v-addr-detected">—</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Selecciona l'opció:</div>
+      <div class="addr-chips">
+        <div class="addr-chip sel" id="addr-pdf" onclick="selectAddr('pdf',this)">Adreça del PDF</div>
+        <div class="addr-chip" id="addr-new" onclick="selectAddr('new',this)">+ Crear nova adreça a A3</div>
+      </div>
+    </div>
+
+    <div class="card" id="pett-card" style="display:none;">
+      <div class="card-label">Pettinaroli <span class="badge badge-warn">Preus especials</span></div>
+      <div class="pett-box">
+        <div class="pett-title">⚠ Indica l'escenari de preus per a Pettinaroli</div>
+        <div class="pett-opts">
+          <label class="radio-opt"><input type="radio" name="pett" value="net" onchange="setPettMode('net')"> Preu net (multiplicador)</label>
+          <label class="radio-opt"><input type="radio" name="pett" value="dto" onchange="setPettMode('dto')"> Descompte sobre preu venda</label>
+        </div>
+        <div class="pett-input-row" id="pett-net-row" style="display:none;">
+          <span style="font-size:13px;">Multiplicador:</span>
+          <input type="number" id="pett-mult" step="0.001" min="0.001" max="0.999" value="0.890" oninput="renderLines()">
+          <span style="font-size:12px;color:var(--text2);" id="pett-mult-preview"></span>
+        </div>
+        <div class="pett-input-row" id="pett-dto-row" style="display:none;">
+          <span style="font-size:13px;">Descompte:</span>
+          <select id="pett-dto-sel" onchange="renderLines()" style="padding:4px 8px;border:1px solid var(--border2);border-radius:var(--radius);font-size:13px;background:var(--surface);color:var(--text);">
+            <option value="5">5%</option>
+            <option value="6">6%</option>
+          </select>
+        </div>
+      </div>
+      <div class="pett-auto-msg" id="pett-auto-msg"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Línies de la comanda</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Codi article</th>
+              <th style="min-width:180px;">Descripció</th>
+              <th>Ut.</th>
+              <th>Unitats</th>
+              <th>Preu venda</th>
+              <th>Preu compra</th>
+              <th>Desc. %</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="lines-tbody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;">
+        <button class="btn btn-sm" onclick="addLine()">+ Afegir línia</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Resum</div>
+      <div id="summary-content"></div>
+    </div>
+
+    <div class="notice">Revisa totes les dades. Un cop aprovat, podràs exportar el CSV per introduir a A3.</div>
+
+    <div class="actions">
+      <span class="actions-note" id="sc2-agent-note" style="display:none;">
+        Escenari 2 — coeficient: <strong id="coef-display">0.890</strong>
+      </span>
+      <button class="btn" onclick="resetAll()">Cancel·lar</button>
+      <button class="btn btn-success" onclick="approveOrder()">✓ Aprovar comanda</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: DONE -->
+  <div class="step" id="step-done">
+    <div class="done-wrap">
+      <div class="done-icon">✓</div>
+      <div class="done-title">Comanda aprovada</div>
+      <div class="done-sub">Pots exportar el CSV per a A3 o processar una nova comanda</div>
+      <div class="card" style="text-align:left;" id="done-card"></div>
+      <div id="save-map-prompt" style="display:none;"></div>
+      <div style="margin-top:1.25rem;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+        <button class="btn" onclick="exportA3()">📥 Comanda venda</button>
+        <button class="btn" onclick="exportA3Compra()">📥 Comanda compra</button>
+        <button class="btn btn-primary" onclick="resetAll()">Nova comanda</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+
+// ─── PETTINAROLI DB ──────────────────────────────────────
+const PETT_DB = [{"lkn": "PF-13341 ARM", "desc": "ADAPT. 3/4´X18X12.4X16 M.3015 AMARILLO CLIMAFLOOR", "ref": "9601210660C"}, {"lkn": "PF-13573 ARM", "desc": "MANDO ELECTRO-TERM M.A542O4 NC 230V ON/OFF Micro Aux 4h", "ref": "A542O40001C"}, {"lkn": "PF-13575 ARM", "desc": "MANDO ELECTRO-TERM M.A544O2 NC 24V ON/OFF", "ref": "A544O20001C"}, {"lkn": "PF-13831 ARM", "desc": "COLECTOR LINEAL PREM 11/4X3/4X18X4 M.7035TEM", "ref": "9621712020C"}, {"lkn": "PF-13985 ARM", "desc": "ADAPT. 3/4´X18 M.3625 AMARILLO -GIALLO", "ref": "9601010330C"}, {"lkn": "PF-14046 ARM", "desc": "COLECTOR LINEAL PREM 1X3/4X18X7 M.7035TEM", "ref": "9636212020C"}, {"lkn": "PF-14049 ARM", "desc": "COLECTOR LINEAL PREM 1X3/4X18X6 M.7035TEM", "ref": "9631212020C"}, {"lkn": "PF-14051 ARM", "desc": "RACOR 3P RECTO 2´ M.701 AMARILLO -GIALLO", "ref": "6005010050C"}, {"lkn": "PF-14353 ARM", "desc": "COLECTOR LINEAL PREM 1X3/4X18X5 M.7035TEM", "ref": "9626212020C"}, {"lkn": "PF-14479 ARM", "desc": "VALV. ESF. C/RACOR LOCO 3/4´H-1/2´M M.209/1 ESCUADRA M.ROJA", "ref": "3701518890C"}, {"lkn": "PF-14803 ARM", "desc": "COLECTOR LINEAL PREM 1X3/4X18X3 M.7035DM", "ref": "9616211020C"}, {"lkn": "PF-14876 ARM", "desc": "VALV. ESF. MXM 1´ M.52CE/2 M.MARIPOSA", "ref": "3702518110C"}, {"lkn": "PF-14916 ARM", "desc": "RACOR TERMINAL 1´ M.AC7035 C/PURG.AUT Y VACIADO", "ref": "9702500160C"}, {"lkn": "PF-15062 ARM", "desc": "RECAMBIO MONTURA VALVULA P/COL. PREM 7035DM de 1\" y 1.1/4\"  M.073AU", "ref": "9301510200C"}, {"lkn": "PF-15092 ARM", "desc": "VALV. ESF. MXF 3/4´ M.51CE/1R M.PALANCA", "ref": "3702018010C"}, {"lkn": "PF-15094 ARM", "desc": "VALV. ESF. MXF 1´ M.51CE/1R M.PALANCA", "ref": "3702518010C"}, {"lkn": "PF-15221 ARM", "desc": "COLECTOR 1X3/4X18X03 PREM. M.7035TO LAT C/CAUDALIMETRO", "ref": "6216213230C"}, {"lkn": "PF-15222 ARM", "desc": "COLECTOR 1X3/4X18X04 PREM. M.7035TO LAT C/CAUDALIMETRO", "ref": "6221213230C"}, {"lkn": "PF-15232 ARM", "desc": "COLECTOR 1X3/4X18X12 PREM. M.7035TO LAT C/CAUDALIMETRO", "ref": "6261213230C"}, {"lkn": "PF-15357 ARM", "desc": "VALV. ESF. FXF 3/4´ M.58 C/BLOQUEO", "ref": "3702015300C"}, {"lkn": "PF-15429 ARM", "desc": "AGENDA OBSEQUIO.", "ref": ""}, {"lkn": "PF-15470 ARM", "desc": "CONJUNTO IMPULSION+RETORNO M.7500TO c/caudalimetro", "ref": "6236020130C"}, {"lkn": "PF-15586 ARM", "desc": "VALV. ESF. FXF 1´ M.51 M.PALANCA", "ref": "3702515050C"}, {"lkn": "PF-15654 ARM", "desc": "VALV. ESF. MXF 3/4´ M.51/1 M.PALANCA", "ref": "3702015060C"}, {"lkn": "PF-15656 ARM", "desc": "VALV. ESF. MXF 1´ M.51/1 M.PALANCA", "ref": "3702515060C"}, {"lkn": "PF-15658 ARM", "desc": "VALV. ESF. FXF 1.1/4´ M.51 M.PALANCA", "ref": "3703215050C"}, {"lkn": "PF-15682 ARM", "desc": "RECAMBIO CAUDALIMETRO P/COL. PREMONTADO M.M7500T", "ref": "9301510170C"}, {"lkn": "PF-15727 ARM", "desc": "RECAMBIO FILTRO FM028 M.FM 2´", "ref": "9404745000C"}, {"lkn": "PF-15729 ARM", "desc": "DETENTOR RAD. ESCUADRA 1/2´ M.750R", "ref": "0601515500C"}, {"lkn": "PF-15762 ARM", "desc": "VALV. ESF. MXF 1/2´ M.51CE/1R M.PALANCA", "ref": "3701518010C"}, {"lkn": "PF-15805 ARM", "desc": "ADAPT. 16 x 16/12 M.3015SCR NIQUEL P/MULTICAPA", "ref": "9601298610C"}, {"lkn": "PF-15837 ARM", "desc": "ANILLO RETEN METALICO PARA FILTRO DE VALV. 2´ M.51F (SEEG51F 2\")", "ref": "9400245020C"}, {"lkn": "PF-15839 ARM", "desc": "MANDO PALANCA M.051F 150mm PARA VALV. ESF. C/FILTRO", "ref": "8215045470C"}, {"lkn": "PF-15848 ARM", "desc": "VALV. RAD. ESC. TERM. 1/2 M.760R", "ref": "0301515280C"}, {"lkn": "PF-15922 ARM", "desc": "ADAPT. 3/4´X18X13X17 M.3015SCR GIALLO MULTICAPA", "ref": "9601390050C"}, {"lkn": "PF-15929 ARM", "desc": "VALV. EQUILIBRADO DINAMICO M-M 3/4´ 600L/H M.91XL/2 PICV", "ref": "3702010170C"}, {"lkn": "PF-15942 ARM", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1/2´ 600L/H M.91L PICV", "ref": "3701590070C"}, {"lkn": "PF-16029 ARM", "desc": "VALV. ESF. FXF 2.1/2´ M.51 M.PALANCA", "ref": "3707015050C"}, {"lkn": "PF-16036 ARM", "desc": "RECAMBIO ADAPTADOR MANDO ELECTRO-TERM M.VA64 PETTINAROLI", "ref": "8006405000C"}, {"lkn": "PF-16044 ARM", "desc": "RECAMBIO ADAPTADOR MANDO ELECTRO-TERM M.PETTINAROLI COLECT.ANTIGUOS", "ref": "8007805000"}, {"lkn": "PF-16068 ARM", "desc": "MANDO ELECTRO-TERM M.A562O2 NC 230V ON/OFF PICV", "ref": "A562O20001C"}, {"lkn": "PF-16071 ARM", "desc": "KIT HIDRAULICO PCS M.XT800 3/4´ 1500L/H", "ref": "6202010601C"}, {"lkn": "PF-16072 ARM", "desc": "KIT HIDRAULICO PCS M.XT850 1´ 2200L/H", "ref": "6202510650C"}, {"lkn": "PF-16073 ARM", "desc": "KIT HIDRAULICO PCS M.XT850 1´ 2700L/H", "ref": "6202510654C"}, {"lkn": "PF-16096 ARM", "desc": "KIT HIDRAULICO PCS M.XT800 3/4´ 1000L/H", "ref": "6202010600C"}, {"lkn": "PF-16100 ARM", "desc": "CASCO AISLANTE PARA M.XT800 3/4´ Motor Externo", "ref": "6902010170C"}, {"lkn": "PF-16102 ARM", "desc": "CASCO AISLANTE PARA M.XT850 1´ Motor Externo", "ref": "6902010160C"}, {"lkn": "PF-16139 ARM", "desc": "VALV. EQUILIBRADO DINAMICO H-H 3/4´ 1.500L/H M.91H PICV", "ref": "3702090100C"}, {"lkn": "PF-16156 ARM", "desc": "FLEXO P FXMUP DN13 1/2´ Macho x 1/2´ Tuerca Loca 30cm", "ref": "8504400240C"}, {"lkn": "PF-16157 ARM", "desc": "FLEXO P FXMUP DN13 3/4´ Macho x 3/4´ Tuerca Loca 30cm", "ref": ""}, {"lkn": "PF-16171 ARM", "desc": "ADAPT. 3/4´X18X12X16 M.3015SCR GIALLO MULTICAPA", "ref": "9601290050C"}, {"lkn": "PF-16183 ARM", "desc": "CLIP BLOQUEO PARA COLECTOR MODULAR PLAST M.K7500 ROJO", "ref": "7500 1.1/4\" red"}, {"lkn": "PF-16185 ARM", "desc": "CLIP BLOQUEO PARA COLECTOR MODULAR PLAST M.K7500 AZUL", "ref": "7500 1.1/4\" blu"}, {"lkn": "PF-16209 ARM", "desc": "KIT VALV. ESF. 1´ M.52XT/3 C/RACOR y PORTATERMOMETRO (2uds azul+roja)", "ref": "3702511350C"}, {"lkn": "PF-16225 ARM", "desc": "ACTUADOR ELECTRO-MECANICO 3 PTS M.VA7481 230V sin adaptador", "ref": "6400800190C"}, {"lkn": "PF-16237 ARM", "desc": "GRUPO IMPULSION PUNTO FIJO M.7013PKK 1´´ C/ACTUADOR 20-50ºC", "ref": "6203210120C"}, {"lkn": "PF-16271 ARM", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1/2´ 150L/H M.91VL PICV", "ref": "3701590220C"}, {"lkn": "PF-16273 ARM", "desc": "VALV. EQUILIBRADO DINAMICO H-H 3/4´ 1.000L/H M.91L PICV", "ref": "3702090080C"}, {"lkn": "PF-16275 ARM", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1´ 1.500L/H M.91H PICV", "ref": "3702890090C"}, {"lkn": "PF-16296 ARM", "desc": "RECAMBIO CJTO MONTURA DETENTOR + ASIENTO P/COL. PREM 7035DM 1\"", "ref": "9602310030C + 9602511000C"}, {"lkn": "PF-16297 ARM", "desc": "RECAMBIO CAPUCHA DETENTOR P/COL. PREM 7035DM", "ref": "8802710030"}, {"lkn": "PF-16298 ARM", "desc": "MANDO P/VALV. COLECTOR PREMONTADO ANTIGUO BLANCO M.089  M.0760P", "ref": "8203505050C ??"}, {"lkn": "PF-16306 ARM", "desc": "COLECTOR LINEAL PREM 11/4X3/4X18X06 M.7035DM", "ref": "9631711020C"}, {"lkn": "PF-16308 ARM", "desc": "COLECTOR LINEAL PREM 11/4X3/4X18X08 M.7035DM", "ref": "9641711020C"}, {"lkn": "PF-324645", "desc": "KIT HIDRAULICO PCS M.XT801 3/4´ 1500L/H", "ref": "6202010051C"}, {"lkn": "PF-324646", "desc": "CASCO AISLANTE PARA M.XT801 3/4´ Motor Externo - calef (I801HV)", "ref": "6902010080C"}, {"lkn": "PF-324647", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1.1/4´ 2700L/H M.93L PICV", "ref": "3703290090C"}, {"lkn": "PF-324648", "desc": "VALV. EQUILIBRADO DINAMICO 2\" DN50 20.000L/H M.94FH PICV", "ref": "3705040600C"}, {"lkn": "PF-324649", "desc": "VALV. EQUILIBRADO DINAMICO 2-1/2\" DN65 20.000L/H M.94FL PICV", "ref": "3706540610C"}, {"lkn": "PF-324650", "desc": "VALV. EQUILIBRADO DINAMICO 3\" DN80 30.000L/H M.94FL PICV", "ref": "3708040610C"}, {"lkn": "PF-324651", "desc": "FLEXO P FXMUP DN15 3/4´ Macho x 3/4´ Tuerca Loca 30cm", "ref": "8504500240C"}, {"lkn": "PF-324655", "desc": "SISTEMA ANTIVANDALICO PARA CABEZA TERMOSTATICA M.107L\"OVAL\"", "ref": "8010700000C"}, {"lkn": "PF-324656", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1\" 2,200L/H M.93L PICV", "ref": "3702590090C"}, {"lkn": "PF-324660", "desc": "FLEXO P FXMUP DN15 1/2´ Macho x 1/2´ Tuerca Loca 30cm", "ref": "8501300240C"}, {"lkn": "PF-324665", "desc": "KIT HIDRAULICO PCS M.XT700G 1/2´ 600L/H CON AISLANTE", "ref": "6201510701C"}, {"lkn": "PF-324666", "desc": "FLEXO P FXMUP DN15 1/2´ Macho x 1/2´ Tuerca Loca 35cm", "ref": "8501400240C"}, {"lkn": "PF-324689", "desc": "ADAPT. 3/4´X18X13X16 M.3015 AMARILLO CLIMAFLOOR", "ref": "9601310100C"}, {"lkn": "PF-324690", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1/2´ 450l/h M.92L PICV", "ref": "3701592000C"}, {"lkn": "PF-324691", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1.1/4\" 4.000L/H M.83HJP PICV-R", "ref": "3703290250C"}, {"lkn": "PF-324707", "desc": "KIT HIDRAULICO PCS M.XT851 1´ 2200L/H", "ref": "6202510701C"}, {"lkn": "PF-324708", "desc": "KIT HIDRAULICO PCS M.XT851 1´ 2700L/H", "ref": "6202510700C"}, {"lkn": "PF-324709", "desc": "CASCO AISLANTE PARA M.XT851 1´ Motor Externo - calef", "ref": "6902010090C"}, {"lkn": "PF-324724", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TV H-H 3/4\"  Kvs 6,0  DN20", "ref": "3702012750C"}, {"lkn": "PF-324749", "desc": "KIT HIDRAULICO PCS M.XT701G 1/2\" 600L/H CON AISLANTE", "ref": "6201510731C"}, {"lkn": "PF-324754", "desc": "VALV. EQUILIBRADO DINAMICO H-H 3/4´ 2.200L/H M.93L PICV", "ref": "3702090090C"}, {"lkn": "PF-324755", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1\" 2.700L/H M.93H PICV", "ref": "3702590180C"}, {"lkn": "PF-324756", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1/2´ 850L/H M.92H PICV", "ref": "3701592210C"}, {"lkn": "PF-324757", "desc": "VALV. EQUILIBRADO DINAMICO H-H 3/4´ 1.000l/h M.92L PICV", "ref": "3702092000C"}, {"lkn": "PF-324758", "desc": "VALV. EQUILIBRADO DINAMICO H-H 3/4´ 1.850L/H M.92H PICV", "ref": "3702092080C"}, {"lkn": "PF-324759", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TV H-H 1/2\"  Kvs 0,71  DN15", "ref": "3701512750C"}, {"lkn": "PF-324760", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TV H-H 1/2\"  Kvs 1,38  DN15", "ref": "3701612750C"}, {"lkn": "PF-324761", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TV H-H 3/4\"  Kvs 3,25  DN20", "ref": "3702212750C"}, {"lkn": "PF-324762", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TV H-H 1\"  Kvs 8,80  DN25", "ref": "3702512750C"}, {"lkn": "PF-324784", "desc": "MANDO ELECTRO-TERM M.A544P3 NC 24V - (0-10V) PROPORCIONAL Serie 91", "ref": "A544P30001C"}, {"lkn": "PF-324785", "desc": "MANDO ELECTRO-TERM M.A564P3 NC 24V - (0-10V) PROPORCIONAL Serie 93", "ref": "A564P30001C"}, {"lkn": "PF-324786", "desc": "CASCO AISLANTE PARA VALV. PICV M.093IHV 3/4” a 1.1/4\"", "ref": "6902010531C"}, {"lkn": "PF-324796", "desc": "RACOR TERMINAL 1´ M.AC7014 C/PURG.MAN Y VACIADO", "ref": "9702500150C"}, {"lkn": "PF-324797", "desc": "VALV. ESF. MXF 1/2´ M.52CS/1R M.MARIPOSA C/TOMA DESCARGA", "ref": "3701518380C"}, {"lkn": "PF-324798", "desc": "VALV. ESF. MINI MM 1/2´ MAN. M.378", "ref": "2901515360C"}, {"lkn": "PF-324799", "desc": "VALV. EQUILIBRADO DINAMICO H-H 3/4\" 2.700L/H M.93H PICV", "ref": "3702090180C"}, {"lkn": "PF-324800", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1.1/4´ 3000L/H M.93H PICV", "ref": "3703290180C"}, {"lkn": "PF-324801", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1.1/4\" 6.000L/H M.83HPR1 PICV DN40", "ref": "3704240160C"}, {"lkn": "PF-324802", "desc": "KIT HIDRAULICO PCS M.XT1303G 1/2´ 600L/H CON AISLANTE", "ref": "6201710401C"}, {"lkn": "PF-324806", "desc": "FLEXO P FXMUP DN25 1´ Macho x 1´ Tuerca Loca 40cm", "ref": "8502600250C"}, {"lkn": "PF-324812", "desc": "VALV. EQUILIBRADO DINAMICO M-M 3/4´ 900L/H M.91XH/2 PICV", "ref": "3702090320C"}, {"lkn": "PF-324815", "desc": "KIT VALV. ESF. 1´ M.59X/3 C/RACOR ESCUADRA- (2uds azul+roja)", "ref": "3702511250C"}, {"lkn": "PF-324819", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1/2´ 600L/H M.91L1 PICV  Sin t.presion", "ref": "3701590280C"}, {"lkn": "PF-324820", "desc": "VALV. EQUILIBRADO DINAMICO H-H 3/4´ 1.000L/H M.91L1 PICV Sin t.presion", "ref": "3702090280C"}, {"lkn": "PF-324824", "desc": "VALV. ESF. FXF 3´ M.51 M.PALANCA", "ref": "3708015050C"}, {"lkn": "PF-324830", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1.1/2\" 9.000L/H M.83HPR1 PICV DN40", "ref": "3704040160C"}, {"lkn": "PF-324831", "desc": "VALV. EQUILIBRADO DINAMICO H-H 2\" 12.000L/H M.83LPR1 PICV DN50", "ref": "3705040130C"}, {"lkn": "PF-324846", "desc": "VALV. 6 VIAS EvoSIX M.63/2S CR 3/4” DN20 - Kv 2.8", "ref": "6401790601C"}, {"lkn": "PF-324847", "desc": "ACTUADOR ROTATIVO M.M63 24V (0-10V) - 2/3 puntos para EvoSIX", "ref": "6400800300C"}, {"lkn": "PF-324848", "desc": "CASCO AISLANTE para EvoSIX M.063GI DN20", "ref": "9402010380C"}, {"lkn": "PF-324850", "desc": "VALV. 6 VIAS EvoSIX M.63/2S CR 3/4” DN15 - Kv 1.25", "ref": "6401590601C"}, {"lkn": "PF-324855", "desc": "KIT HIDRAULICO PCS M.XT704 1/2´ 450L/H", "ref": "6201510820C"}, {"lkn": "PF-324884", "desc": "FLEXO P FXMUP DN19 3/4´ Macho x 3/4´ Tuerca Loca 40cm", "ref": "8502100240C"}, {"lkn": "PF-324885", "desc": "COLECTOR LINEAL PREM 1X3/4X18X05 M.7035DM", "ref": "9626211020C"}, {"lkn": "PF-324886", "desc": "SOPORTE COLECTOR M.7080/1 1´", "ref": "8202545020C"}, {"lkn": "PF-324896", "desc": "KIT CONTABILIZACION M.KCH06AY - 3/4\" 600L/H", "ref": "6202020010C"}, {"lkn": "PF-324908", "desc": "ADAPT. 3/4´X18X16X20 M.3015SCR GIALLO MULTICAPA", "ref": "9601690040C"}, {"lkn": "PF-325029", "desc": "KIT HIDRAULICO PCS M.XT850G 1´ 2200L/H CON AISLANTE", "ref": "6202810670C"}, {"lkn": "PF-325030", "desc": "KIT HIDRAULICO PCS M.XT850G 1´ 3000L/H CON AISLANTE", "ref": "6202510670C"}, {"lkn": "PF-325031", "desc": "ACTUADOR ROTATIVO M.SN08CC 24V (0-10V) para la serie 81 y 83", "ref": "6402410020C"}, {"lkn": "PF-325032", "desc": "MALETIN MANOMETRO DIGITAL M.MDP MEDICION PRESION DIF. 0-6,9 bar", "ref": "6400000380C"}, {"lkn": "PF-325049", "desc": "VALV. EQUILIBRADO DINAMICO H-H 2\" 11.000l/h M.83VLPR1 PICV DN40", "ref": "3704040230C"}, {"lkn": "PF-325050", "desc": "KIT HIDRAULICO PCS M.XT701G 3/4'' 1000L/H CON AISLANTE", "ref": "6202010781C"}, {"lkn": "PF-325051", "desc": "CASCO AISLANTE PARA VALV. PICV M.092ICV 3/4'' enfriamiento", "ref": "6902010620C"}, {"lkn": "PF-325054", "desc": "COLECTOR MODULAR PLAST M.K7510TO 1´X3/4X18X2 c/caudalim.", "ref": "6221050010C"}, {"lkn": "PF-325055", "desc": "COLECTOR MODULAR PLAST M.K7510TO 1´X3/4X18X4 c/caudalim.", "ref": "6231050010C"}, {"lkn": "PF-325056", "desc": "COLECTOR MODULAR PLAST M.K7510TO 1´X3/4X18X6 c/caudalim.", "ref": "6241050010C"}, {"lkn": "PF-325060", "desc": "ADAPTADOR PARA ACTUADOR MECANICO VA7481/2 - 3.2 mm M.0A7010", "ref": "7403110030C"}, {"lkn": "PF-325072", "desc": "MALETIN MUESTRAS PETTINAROLI COLECTORES", "ref": ""}, {"lkn": "PF-325073", "desc": "MALETIN MUESTRAS PETTINAROLI EQUILIBRADO", "ref": ""}, {"lkn": "PF-325074", "desc": "MALETIN MUESTRAS PETTINAROLI RADIADOR", "ref": ""}, {"lkn": "PF-325076", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1.1/2\" 6.000L/H M.83LPR1 PICV DN40", "ref": "3704040140C"}, {"lkn": "PF-325077", "desc": "ADAPTADOR PARA ACTUADOR MECANICO VA7481/2 - 6.3 mm M.0A748X", "ref": "7403110040C"}, {"lkn": "PF-325078", "desc": "CASCO AISLANTE PARA VALV. PICV M.083IHV 1.1/4\" a 2” DN40", "ref": "6902010720C"}, {"lkn": "PF-325079", "desc": "CASCO AISLANTE PARA VALV. PICV M.083IHV 2” DN50", "ref": "6902010760C"}, {"lkn": "PF-325086", "desc": "MANDO ELECTRO-TERM M.V542O2 NC 230V ON/OFF", "ref": "V542O20001C"}, {"lkn": "PF-325087", "desc": "MALETIN MANOMETRO DIGITAL M.MDPS2 MEDICION PRESION+CAUDAL C/Smartphone", "ref": "8000000080C"}, {"lkn": "PF-325088", "desc": "VALV. EQUILIBRADO DINAMICO H-H 2\" 18.000L/H M.83HPR1 PICV DN50", "ref": "3705040180C"}, {"lkn": "PF-325089", "desc": "VENTURI PARA LECTURA CAUDAL M.CV90 M-H 1/2” x 3 mm - Kv 0,37", "ref": "9601510360C"}, {"lkn": "PF-325090", "desc": "VENTURI PARA LECTURA CAUDAL M.CV90 M-H 1/2” x 4,25 mm - Kv 0,72", "ref": "9601610360C"}, {"lkn": "PF-325091", "desc": "VENTURI PARA LECTURA CAUDAL M.CV90 M-H 1/2” x 6 mm - Kv 1,38", "ref": "9602010360C"}, {"lkn": "PF-325092", "desc": "VENTURI PARA LECTURA CAUDAL M.CV90 M-H 1/2” x 7,5 mm - Kv 2,28", "ref": "9601710360C"}, {"lkn": "PF-325093", "desc": "VENTURI PARA LECTURA CAUDAL M.CV90 M-H 1/2” x 9 mm - Kv 3,37", "ref": "9601810360C"}, {"lkn": "PF-325094", "desc": "VENTURI PARA LECTURA CAUDAL M.CV90 M-H 3/4” x 9 mm - Kv 3,30", "ref": "9602210360C"}, {"lkn": "PF-325095", "desc": "VENTURI PARA LECTURA CAUDAL M.CV90 M-H 3/4” x 10,5 mm - Kv 4,10", "ref": "9602310360C"}, {"lkn": "PF-325096", "desc": "VENTURI PARA LECTURA CAUDAL M.CV90 M-H 3/4” x 12 mm - Kv 6", "ref": "9602410360C"}, {"lkn": "PF-325097", "desc": "VENTURI PARA LECTURA CAUDAL M.CV90 M-H 1” x 10 mm - Kv 4,30", "ref": "9602610360C"}, {"lkn": "PF-325098", "desc": "VENTURI PARA LECTURA CAUDAL M.CV90 M-H 1” x 14,5 mm - Kv 9", "ref": "9602510360C"}, {"lkn": "PF-325099", "desc": "VENTURI PARA LECTURA CAUDAL M.CV90 M-H 1 1/4” x 13 mm - Kv 7", "ref": "9602510360C"}, {"lkn": "PF-325100", "desc": "VENTURI PARA LECTURA CAUDAL M.CV90 M-H 1 1/4” x 19 mm - Kv 15,30", "ref": "9603210360C"}, {"lkn": "PF-325114", "desc": "CASCO AISLANTE PARA VALV. PICV M.091IHV 1/2\" a 3/4”", "ref": "6902010471C"}, {"lkn": "PF-325119", "desc": "FILTRO DESFANGADOR MAGNETICO M.102V VERTICAL DN20", "ref": "1010210000C"}, {"lkn": "PF-325120", "desc": "FILTRO DESFANGADOR MAGNETICO M.102H HORIZONTAL DN20", "ref": "1010220000C"}, {"lkn": "PF-325121", "desc": "FILTRO DESFANGADOR MAGNETICO XL M.103 ORIENTABLE 360º DN25", "ref": "1010310000C"}, {"lkn": "PF-325122", "desc": "FILTRO DESFANGADOR MAGNETICO M.K102V/1 VERTICAL DN20 C/VALVULA 3/4\"", "ref": "1010210010C"}, {"lkn": "PF-325123", "desc": "FILTRO DESFANGADOR MAGNETICO M.K102H/1 HORIZONTAL DN20 C/VALVULA 3/4\"", "ref": "1010220010C"}, {"lkn": "PF-325124", "desc": "FILTRO DESFANGADOR MAGNETICO XL M.K103/2 ORIENTABLE 360º DN25 C/VALVULAS 1\"", "ref": "1010310020C"}, {"lkn": "PF-325135", "desc": "VALV. ESF. C/FILTRO 3/4´ M.52F", "ref": "3902010010C"}, {"lkn": "PF-325136", "desc": "VALV. ESF. FXF 3/4´ M.52CEB M.MARIPOSA AZUL", "ref": "3702018990C"}, {"lkn": "PF-325138", "desc": "TERMOMETRO 0-80ºC 3/8´ M.T39P/80", "ref": "9403900001C"}, {"lkn": "PF-325152", "desc": "COLECTOR MODULAR PLAST M.K7510TO 1´X3/4X18X8 c/caudalim.", "ref": "6251050010C"}, {"lkn": "PF-325153", "desc": "VALV. ESF. FXF 1/2´ M.51 M.PALANCA", "ref": "3701515050C"}, {"lkn": "PF-325154", "desc": "VALV. ESF. FXF 3/4´ M.51 M.PALANCA", "ref": "3702015050C"}, {"lkn": "PF-325155", "desc": "VALV. ESF. FXF 1.1/2´ M.51 M.PALANCA", "ref": "3704015050C"}, {"lkn": "PF-325156", "desc": "VALV. ESF. FXF 2´ M.51 M.PALANCA", "ref": "3705015050C"}, {"lkn": "PF-325162", "desc": "KIT HIDRAULICO PCS M.XT701G 1/2\" 150L/H CON AISLANTE", "ref": "6201510791C"}, {"lkn": "PF-325163", "desc": "KIT HIDRAULICO PCS M.XT701G 1/2\" 780L/H CON AISLANTE", "ref": "6201510741C"}, {"lkn": "PF-325164", "desc": "GRUPO TERMINAL M.KC7535E P/COL MODULAR M.K7510 1\"", "ref": "9702530100C"}, {"lkn": "PF-325165", "desc": "CASCO AISLANTE PARA VALV. PICV M.092IHV calef. para 92VL y 92L - 1/2\"", "ref": "6902010590C"}, {"lkn": "PF-325166", "desc": "CASCO AISLANTE PARA VALV. PICV M.092IHV calef. para 92H de 1/2\" y 92 de 3/4\"", "ref": "6902010600C"}, {"lkn": "PF-325169", "desc": "CASCO AISLANTE PARA VALV. PICV M.092IHV calef. para 92L y 92H de 1\"", "ref": "6902010970C"}, {"lkn": "PF-325178", "desc": "VALV. EQUILIBRADO DINAMICO 4\" DN100 55.000L/H M.94FL PICV", "ref": "3710040610C"}, {"lkn": "PF-325179", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1/2\" 780L/H M.91H PICV", "ref": "3701590090C"}, {"lkn": "PF-325180", "desc": "CASCO AISLANTE PARA VALV. PICV M.094IHV 2\" - Rite", "ref": "6902010790C"}, {"lkn": "PF-325181", "desc": "CASCO AISLANTE PARA VALV. PICV M.094IHV 4\" - Rite", "ref": "6902010810C"}, {"lkn": "PF-325190", "desc": "COLECTOR MODULAR PLAST M.K7522TO 1´X3/4X18X4 c/caudalim.+ valv.", "ref": "6231050040C"}, {"lkn": "PF-325191", "desc": "COLECTOR MODULAR PLAST M.K7522TO 1´X3/4X18X6 c/caudalim.+ valv.", "ref": "6241050040C"}, {"lkn": "PF-325192", "desc": "COLECTOR MODULAR PLAST M.K7522TO 1´X3/4X18X8 c/caudalim.+ valv.", "ref": "6251050040C"}, {"lkn": "PF-325197", "desc": "MANDO ELECTRO-TERM M.A564O2 NC 24V ON/OFF PICV S.93", "ref": "A564O20001C"}, {"lkn": "PF-325199", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1/2´ 450L/H M.92L1 PICV Sin t.presion", "ref": "3701592100C"}, {"lkn": "PF-325202", "desc": "KIT HIDRAULICO PCS M.XT700G 1/2´ 150L/H CON AISLANTE", "ref": "6201510711C"}, {"lkn": "PF-325204", "desc": "REGULADOR DE PRESIÓN DIFERENCIAL M.091D para la PICV 600L/H M.91L", "ref": "8301510000C"}, {"lkn": "PF-325205", "desc": "REGULADOR DE PRESIÓN DIFERENCIAL M.091D para la PICV 1500L/H M.91H", "ref": "8302010004C"}, {"lkn": "PF-325213", "desc": "ACTUADOR ELEC-TERM M.V542O2Q NC 230V ON-OFF PWM - 4 mm c/adapt. V80", "ref": "V542O2Q001C"}, {"lkn": "PF-325214", "desc": "ACTUADOR ELEC-TERM M.A544O2S NC 24V ON-OFF PWM - 4 mm c/adapt. V80", "ref": "A544O2S001C"}, {"lkn": "PF-325215", "desc": "VALVULA CONTROL 2V 1/2\"- DN10 M.662", "ref": "6401512000C"}, {"lkn": "PF-325216", "desc": "VALVULA CONTROL 2V 3/4\" - DN15 M.662", "ref": "6402012000C"}, {"lkn": "PF-325217", "desc": "VALVULA CONTROL 2V 1\" - DN20 M.662", "ref": "6402512000C"}, {"lkn": "PF-325218", "desc": "VALVULA CONTROL 3V 1/2\" - DN10 M.663 - Kv 1.60", "ref": "6401513000C"}, {"lkn": "PF-325219", "desc": "VALVULA CONTROL 3V 3/4\" - DN15 M.663", "ref": "6402013000C"}, {"lkn": "PF-325220", "desc": "VALVULA CONTROL 3V 1\" - DN20 M.663", "ref": "6402513000C"}, {"lkn": "PF-325221", "desc": "VALVULA CONTROL 4V con by-pass 1/2\" - DN10 M.664", "ref": "6401511000C"}, {"lkn": "PF-325222", "desc": "VALVULA CONTROL 4V con by-pass 3/4\" - DN15 M.664", "ref": "6402011000C"}, {"lkn": "PF-325223", "desc": "VALVULA CONTROL 4V con by-pass 1\" - DN20 M.664", "ref": "6402511000C"}, {"lkn": "PF-325224", "desc": "KIT HIDRAULICO PCS M.XT702G 1/2´ 150L/H CON AISLANTE", "ref": "6201510751C"}, {"lkn": "PF-325225", "desc": "KIT HIDRAULICO PCS M.XT702G 1/2´ 450L/H CON AISLANTE", "ref": "6201510762C"}, {"lkn": "PF-325228", "desc": "MANDO ELECTRO-TERM M.A542O2D NEUTRO CON ADAPTADOR ESPECIAL Y CABLE", "ref": "A542O2D001C"}, {"lkn": "PF-325230", "desc": "RECAMBIO FILTRO FM028N M.FM 1/2\"-3/4\"", "ref": "9401645070C"}, {"lkn": "PF-325236", "desc": "RECAMBIO RACOR 2P M.B90CIL 1/2\" PARA KIT HIDRAULICO PCS M.XT..01", "ref": "9603211180C"}, {"lkn": "PF-325256", "desc": "CASCO AISLANTE PARA M.XT700 1/2\"-3/4\" Motor Externo", "ref": "6902010540C"}, {"lkn": "PF-325259", "desc": "KIT HIDRAULICO PCS M.XT702G 1/2´ 850L/H CON AISLANTE", "ref": "6201510772C"}, {"lkn": "PF-325277", "desc": "RECAMBIO CONECTOR M.AGO MANOMETRO DIGITAL MDP", "ref": "8000000070"}, {"lkn": "PF-325278", "desc": "VALV. ESF. 1´ M.52T/3RM C/RACOR MARIPOSA ROJA C/T.Termometro", "ref": "3702512600C"}, {"lkn": "PF-325287", "desc": "ACTUADOR ELECTRO-MECANICO 24V (0-10V) M.VA7483 sin adaptador", "ref": "6400800340C"}, {"lkn": "PF-325291", "desc": "RECAMBIO TUBOS-RACORES Y CONECTOR M.... MANOMETRO DIGITAL MDP", "ref": "8500610...+8500610010 +80...070"}, {"lkn": "PF-325292", "desc": "VALV. EQUILIBRADO DINAMICO H-H 3/4´ 1.850L/H M.92H1 PICV Sin t.presion", "ref": "3702092180C"}, {"lkn": "PF-325295", "desc": "KIT HIDRAULICO PCS M.XT1690 1.1/2\" 9.000 L/H C/EVOPICV-R 83 DN40", "ref": "0000000374C"}, {"lkn": "PF-325296", "desc": "RECAMBIO JUNTA NEGRA XT700 Quadring 1/2\" y 3/4\" PARA RACOR 2P KIT HIDRAULICO PCS M.XT...", "ref": "8102505070C"}, {"lkn": "PF-325297", "desc": "COLECTOR MODULAR PLAST M.K7522TO 1´X3/4X18X7 c/caudalim.+ valv.", "ref": "6246050040C"}, {"lkn": "PF-325298", "desc": "MANDO ELECTRO-TERM M.A542O4S NC 230V ON/OFF Micro Aux 4h + VA80 Neutro", "ref": "A542O4S001C"}, {"lkn": "PF-325300", "desc": "COLECTOR 1X3/4X18X02 PREM. M.8135TO INOX c/caudalimetro, purg. autom. y vaciado", "ref": "6219345010C"}, {"lkn": "PF-325301", "desc": "COLECTOR 1X3/4X18X03 PREM. M.8135TO INOX c/caudalimetro, purg. autom. y vaciado", "ref": "6224345010C"}, {"lkn": "PF-325302", "desc": "COLECTOR 1X3/4X18X04 PREM. M.8135TO INOX c/caudalimetro, purg. autom. y vaciado", "ref": "6229345010C"}, {"lkn": "PF-325303", "desc": "COLECTOR 1X3/4X18X05 PREM. M.8135TO INOX c/caudalimetro, purg. autom. y vaciado", "ref": "6234345010C"}, {"lkn": "PF-325304", "desc": "COLECTOR 1X3/4X18X06 PREM. M.8135TO INOX c/caudalimetro, purg. autom. y vaciado", "ref": "6239345010C"}, {"lkn": "PF-325305", "desc": "COLECTOR 1X3/4X18X07 PREM. M.8135TO INOX c/caudalimetro, purg. autom. y vaciado", "ref": "6244345010C"}, {"lkn": "PF-325306", "desc": "COLECTOR 1X3/4X18X08 PREM. M.8135TO INOX c/caudalimetro, purg. autom. y vaciado", "ref": "6249345010C"}, {"lkn": "PF-325307", "desc": "COLECTOR 1X3/4X18X09 PREM. M.8135TO INOX c/caudalimetro, purg. autom. y vaciado", "ref": "6254345010C"}, {"lkn": "PF-325308", "desc": "COLECTOR 1X3/4X18X10 PREM. M.8135TO INOX c/caudalimetro, purg. autom. y vaciado", "ref": "6259345010C"}, {"lkn": "PF-325309", "desc": "COLECTOR 1X3/4X18X11 PREM. M.8135TO INOX c/caudalimetro, purg. autom. y vaciado", "ref": "6264345010C"}, {"lkn": "PF-325310", "desc": "COLECTOR 1X3/4X18X12 PREM. M.8135TO INOX c/caudalimetro, purg. autom. y vaciado", "ref": "6269345010C"}, {"lkn": "PF-325312", "desc": "KIT HIDRAULICO PCS M.XT851 1´ 3000L/H", "ref": "6202510705C"}, {"lkn": "PF-325315", "desc": "KIT HIDRAULICO PCS M.XT1314G 3/4\" 1.000L/H CON AISLANTE + V3V", "ref": "6202211010C"}, {"lkn": "PF-325328", "desc": "KIT HIDRAULICO PCS M.XT704G 1/2´ 450L/H CON AISLANTE", "ref": "6201510821C"}, {"lkn": "PF-325329", "desc": "KIT HIDRAULICO PCS M.XT801G 3/4´ 1500L/H CON AISLANTE", "ref": "6202010052C"}, {"lkn": "PF-325330", "desc": "KIT HIDRAULICO PCS M.XT851G 1´ 2200L/H CON AISLANTE", "ref": "6202510711C"}, {"lkn": "PF-325331", "desc": "RACORES DE ADAPTACION A ROSCA ISO228 para VALV. EQUILIBRADO M.B90TV_sin cargo_enviados desde italia", "ref": "701 según modelo"}, {"lkn": "PF-325335", "desc": "RECAMBIO RACOR 2P M.B90CIL 3/4\" PARA KIT HIDRAULICO PCS M.XT..01", "ref": "9603211170C"}, {"lkn": "PF-325338", "desc": "COLECTOR MODULAR PLAST M.K7522TO 1´X3/4X18X3 c/caudalim.+ valv.", "ref": "6226050040C"}, {"lkn": "PF-325339", "desc": "COLECTOR MODULAR PLAST M.K7522TO 1´X3/4X18X5 c/caudalim.+ valv.", "ref": "6236050040C"}, {"lkn": "PF-325340", "desc": "COLECTOR MODULAR PLAST M.K7522TO 1´X3/4X18X9 c/caudalim.+ valv", "ref": "6256050040C"}, {"lkn": "PF-325341", "desc": "COLECTOR MODULAR PLAST M.K7522TO 1´X3/4X18X10 c/caudalim.+ valv", "ref": "6261050040C"}, {"lkn": "PF-325342", "desc": "COLECTOR MODULAR PLAST M.K7522TO 1´X3/4X18X11 c/caudalim.+ valv", "ref": "6266050040C"}, {"lkn": "PF-325343", "desc": "COLECTOR MODULAR PLAST M.K7522TO 1´X3/4X18X12 c/caudalim.+ valv", "ref": "6271050040C"}, {"lkn": "PF-325344", "desc": "UNIDAD DE CONTABILIZACION ENERGY SAVER M.UC08DFI x 850 l/h con Picv, Filterball y aislante", "ref": "6203220021C"}, {"lkn": "PF-325345", "desc": "VALV. ESF. MXF 1/2´ M.51/1 M.PALANCA", "ref": "3701515060C"}, {"lkn": "PF-325348", "desc": "REGULADOR DE PRESIÓN DIFERENCIAL M.091D para la PICV M.91VL 1/2 150L/H", "ref": "8301510020C"}, {"lkn": "PF-325349", "desc": "REGULADOR DE PRESIÓN DIFERENCIAL M.091D para la PICV M.91H 1/2 780L/H", "ref": "8302010000C"}, {"lkn": "PF-325350", "desc": "REGULADOR DE PRESIÓN DIFERENCIAL M.091D para la PICV M.91L 3/4 1000L/H", "ref": "8302010003C"}, {"lkn": "PF-325351", "desc": "REGULADOR DE PRESIÓN DIFERENCIAL M.91H 3/4 1500L/H", "ref": "8302010004C"}, {"lkn": "PF-325352", "desc": "REGULADOR DE PRESIÓN DIFERENCIAL M.091D para la PICV M.93 2200L/H", "ref": "8302510003C"}, {"lkn": "PF-325353", "desc": "REGULADOR DE PRESIÓN DIFERENCIAL M.091D para la PICV M.93 2700L/H", "ref": "8302510014C"}, {"lkn": "PF-325354", "desc": "REGULADOR DE PRESIÓN DIFERENCIAL M.091D para la PICV M.93 3000L/H", "ref": "8303210013C"}, {"lkn": "PF-325359", "desc": "KIT HIDRAULICO PCS M.X701GB 3/4'' 1000L/H CON AISLANTE + FLEX AISLADO", "ref": "0000000388C"}, {"lkn": "PF-325360", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TVCI H-H 3/4” x 9 mm Kvs 3,25  DN20 - RP", "ref": "3702112760C"}, {"lkn": "PF-325361", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TVCI H-H 3/4” x 12 mm Kvs 6,0  DN20 - RP", "ref": "3702012760C"}, {"lkn": "PF-325362", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TVCI H-H 1/2” x 4,25 mm Kvs 0,71  DN15 - RP", "ref": "3701512760C"}, {"lkn": "PF-325363", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TVCI H-H 1/2” x 6 mm Kvs 1,38  DN15 - RP", "ref": "3701612760C"}, {"lkn": "PF-325364", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TVCI H-H 1” x 10 mm Kvs 4,10  DN25 - RP", "ref": "3702612760C"}, {"lkn": "PF-325365", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TVCI H-H 1” x 14,5 mm Kvs 8,80  DN25 - RP", "ref": "3702512760C"}, {"lkn": "PF-325366", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TVCI H-H 1.1/4” x 19 mm Kvs 14,70  DN32 - RP", "ref": "3703212760C"}, {"lkn": "PF-325367", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TVCI H-H 1.1/2” x 22 mm Kvs 19,20  DN40 - RP", "ref": "3704012760C"}, {"lkn": "PF-325368", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TVCI H-H 2” x 31,5 mm Kvs 42,00  DN50 - RP", "ref": "3705012760C"}, {"lkn": "PF-325370", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1/2´ 150L/H M.92VL PICV", "ref": "3701592010C"}, {"lkn": "PF-325371", "desc": "FLEXO P FXMUP DN15 1/2´ Macho x 1/2´ Tuerca Loca 40cm", "ref": "8501100240C"}, {"lkn": "PF-325390", "desc": "RECAMBIO FILTRO FM028 M.FM 1’", "ref": "9402445000C"}, {"lkn": "PF-325391", "desc": "RECAMBIO ABRAZADERA DE FIJACION DE BRONCE PARA FM028 1’", "ref": "9400145000C"}, {"lkn": "PF-325395", "desc": "RECAMBIO ADAPTADOR MANDO ELECTRO-TERM M.VA80 PETTINAROLI", "ref": "8008005000C"}, {"lkn": "PF-325396", "desc": "KIT HIDRAULICO PCS M.XT702G 3/4´ 1.850L/H CON AISLANTE", "ref": "6202010762C"}, {"lkn": "PF-325397", "desc": "RACOR 3P RECTO 1.1/2´ M.701 AMARILLO –GIALLO", "ref": "6004010050C"}, {"lkn": "PF-325412", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1/2´ 850L/H M.92H1 PICV Sin t.presion", "ref": "3701592180C"}, {"lkn": "PF-325413", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1´ 2.500l/h M.92L PICV", "ref": "3702592040C"}, {"lkn": "PF-325414", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1´ 3.300l/h M.92H PICV", "ref": "3702592030C"}, {"lkn": "PF-325415", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1.1/4´ 5.200L/H M.92H PICV", "ref": "3703292010C"}, {"lkn": "PF-325416", "desc": "KIT HIDRAULICO PCS M.XT702G 3/4´ 1.000L/H CON AISLANTE", "ref": "6202010752C"}, {"lkn": "PF-325417", "desc": "KIT HIDRAULICO PCS M.XT702G 3/4\"-1\" 2.500L/H CON AISLANTE", "ref": "6202510831C"}, {"lkn": "PF-325418", "desc": "KIT HIDRAULICO PCS M.XT702G 3/4\"-1\" 3.300L/H CON AISLANTE", "ref": "6202510771C"}, {"lkn": "PF-325419", "desc": "KIT HIDRAULICO PCS M.XT880G 1\" 5.200L/H CON AISLANTE", "ref": "6202510657C"}, {"lkn": "PF-325420", "desc": "KIT HIDRAULICO PCS M.XT851G 1´ 2700L/H CON AISLANTE", "ref": "6202510710C"}, {"lkn": "PF-325421", "desc": "KIT HIDRAULICO PCS M.XT851G 1´ 3000L/H CON AISLANTE", "ref": "6202510705C"}, {"lkn": "PF-325422", "desc": "KIT HIDRAULICO PCS M.XT701G 3/4'' 1500L/H CON AISLANTE", "ref": "6202011000C"}, {"lkn": "PF-325425", "desc": "COLECTOR 1X3/4X18X02 PREM. M.K7052TO LATON c/caudalim. purg. vaciado y valvulas", "ref": "6220713010C"}, {"lkn": "PF-325426", "desc": "COLECTOR 1X3/4X18X03 PREM. M.K7052TO LATON c/caudalim. purg. vaciado y valvulas", "ref": "6225713010C"}, {"lkn": "PF-325427", "desc": "COLECTOR 1X3/4X18X04 PREM. M.K7052TO LATON c/caudalim. purg. vaciado y valvulas", "ref": "6230713010C"}, {"lkn": "PF-325428", "desc": "COLECTOR 1X3/4X18X05 PREM. M.K7052TO LATON c/caudalim. purg. vaciado y valvulas", "ref": "6235713010C"}, {"lkn": "PF-325429", "desc": "COLECTOR 1X3/4X18X06 PREM. M.K7052TO LATON c/caudalim. purg. vaciado y valvulas", "ref": "6240713010C"}, {"lkn": "PF-325430", "desc": "COLECTOR 1X3/4X18X07 PREM. M.K7052TO LATON c/caudalim. purg. vaciado y valvulas", "ref": "6245713010C"}, {"lkn": "PF-325431", "desc": "COLECTOR 1X3/4X18X08 PREM. M.K7052TO LATON c/caudalim. purg. vaciado y valvulas", "ref": "6250713010C"}, {"lkn": "PF-325432", "desc": "COLECTOR 1X3/4X18X09 PREM. M.K7052TO LATON c/caudalim. purg. vaciado y valvulas", "ref": "6257013010C"}, {"lkn": "PF-325433", "desc": "COLECTOR 1X3/4X18X10 PREM. M.K7052TO LATON c/caudalim. purg. vaciado y valvulas", "ref": "6262013010C"}, {"lkn": "PF-325434", "desc": "COLECTOR 1X3/4X18X11 PREM. M.K7052TO LATON c/caudalim. purg. vaciado y valvulas", "ref": "6267013010C"}, {"lkn": "PF-325435", "desc": "COLECTOR 1X3/4X18X12 PREM. M.K7052TO LATON c/caudalim. purg. vaciado y valvulas", "ref": "6272013010C"}, {"lkn": "PF-325436", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TVCI H-H 1/2” x 3 mm Kvs 0,36  DN15 - RP", "ref": "3701712760C"}, {"lkn": "PF-325437", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TVCI H-H 1.1/4” x13 mm Kvs 7  DN32 - RP", "ref": "3703312760C"}, {"lkn": "PF-325438", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TVCI H-H 1.1/2” x 15 mm Kvs 9.5  DN40 - RP", "ref": "3704112760C"}, {"lkn": "PF-325439", "desc": "VALV. EQUILIBRADO ESTATICO M.B90TVCI H-H 2” x 18 mm Kvs 12,50  DN50 - RP", "ref": "3705112760C"}, {"lkn": "PF-325440", "desc": "CASCO AISLANTE PARA M.XT701 1/2\"-3/4\" Motor Externo", "ref": "6902010580C"}, {"lkn": "PF-325443", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1/2´ 600L/H M.91XL", "ref": "3701610170C"}, {"lkn": "PF-325444", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1/2´ 900L/H M.91XH PICV", "ref": "3701590310C"}, {"lkn": "PF-325445", "desc": "VALV. EQUILIBRADO DINAMICO 2.1/2\" DN65 30.000L/H M.94FH PICV", "ref": "3706540600C"}, {"lkn": "PF-325446", "desc": "VALV. ESF.  1/2´H-1/2´H M.52MET AVAN-CONT.", "ref": "3701504030C"}, {"lkn": "PF-325447", "desc": "VALV. ESF.  3/4´H-1/2´H M.52MET AVAN-CONT.", "ref": "3702024030C"}, {"lkn": "PF-325448", "desc": "VALV. ESF.  3/4´H-3/4´H M.52MET AVAN-CONT.", "ref": "3702224030C"}, {"lkn": "PF-325449", "desc": "VALV. ESF.  1´H-3/4´H M.52MET AVAN-CONT.", "ref": "3702504020C"}, {"lkn": "PF-325450", "desc": "VALV. ESF.  1´H-1´H M.52MET AVAN-CONT.", "ref": "3702804020C"}, {"lkn": "PF-325451", "desc": "VALV. ESF.  3/4´H-1/2´H M.52METR AVAN-CONT.", "ref": "3702024040C"}, {"lkn": "PF-325452", "desc": "VALV. ESF.  3/4´H-3/4´H M.52METR AVAN-CONT.", "ref": "3702224040C"}, {"lkn": "PF-325453", "desc": "VALV. ESF.  3/4´H-1/2´M M.52MET/1 AVAN-CONT.", "ref": "3702024000C"}, {"lkn": "PF-325454", "desc": "VALV. ESF.  3/4´H-3/4´M M.52MET/1 AVAN-CONT.", "ref": "3702224000C"}, {"lkn": "PF-325455", "desc": "VALV. ESF.  1´H-3/4´M M.52MET/1 AVAN-CONT.", "ref": "3702524000C"}, {"lkn": "PF-325456", "desc": "VALV. ESF.  1´H-1´M M.52MET/1 AVAN-CONT.", "ref": "3702824000C"}, {"lkn": "PF-325457", "desc": "VALV. ESF. PORTASONDA M10X1 1/2´ M.52CES", "ref": "3701508020C"}, {"lkn": "PF-325458", "desc": "VALV. ESF. PORTASONDA M10X1  3/4´ M.52CES", "ref": "3702008020C"}, {"lkn": "PF-325459", "desc": "VALV. ESF. C/FILTRO 1/2´ M.52F", "ref": "3901510010C"}, {"lkn": "PF-325460", "desc": "VALV. ESF. C/FILTRO 1´ M.52F", "ref": "3902510160C"}, {"lkn": "PF-325461", "desc": "VALV. ESF. C/FILTRO 1/2´ M.52FROS", "ref": "3901510030C"}, {"lkn": "PF-325462", "desc": "VALV. ESF. C/FILTRO 3/4´ M.52FROS", "ref": "3902010030C"}, {"lkn": "PF-325463", "desc": "VALV. ESF. C/FILTRO 1´ M.52FROS", "ref": "3902510030C"}, {"lkn": "PF-325464", "desc": "VALV. ESF. FXF 1/2´ M.51CEB M.PALANCA", "ref": "3701518980C"}, {"lkn": "PF-325465", "desc": "VALV. ESF. FXF 3/4´ M.51CEB M.PALANCA", "ref": "3702018980C"}, {"lkn": "PF-325466", "desc": "VALV. ESF. FXF 1´ M.51CEB M.PALANCA", "ref": "3702518980C"}, {"lkn": "PF-325467", "desc": "VALV. ESF. FXF 1.1/4´ M.51CEB M.PALANCA", "ref": "3703218980C"}, {"lkn": "PF-325468", "desc": "VALV. ESF. FXF 1.1/2´ M.51CEB M.PALANCA", "ref": "3704018980C"}, {"lkn": "PF-325469", "desc": "VALV. ESF. FXF 2´ M.51CEB M.PALANCA", "ref": "3705018980C"}, {"lkn": "PF-325470", "desc": "VALV. ESF. FXF 1/2´ M.52CEB M.MARIPOSA AZUL", "ref": "3701518990C"}, {"lkn": "PF-325471", "desc": "VALV. ESF. FXF 1´ M.52CEB M.MARIPOSA AZUL", "ref": "3702518990C"}, {"lkn": "PF-325472", "desc": "VALV. ESF. FXF 1.1/4´ M.52CEB M.MARIPOSA AZUL", "ref": "3703218990C"}, {"lkn": "PF-325473", "desc": "VALV. ESF. 1/2´X1/2´ M.52CE/3 C/RACOR M.MARIPOSA", "ref": "3701525120C"}, {"lkn": "PF-325474", "desc": "VALV. ESF. MXF 2´ M.51/1 M.PALANCA", "ref": "3705015060C"}, {"lkn": "PF-325475", "desc": "VALV. ESF. FXF 2.1/2´ M.51BLU M.PALANCA", "ref": "3707015770C"}, {"lkn": "PF-325476", "desc": "VALV. ESF. FXF 3´ M.51BLU M.PALANCA", "ref": "3708015770C"}, {"lkn": "PF-325477", "desc": "VALV. ESF. FXF 4´ M.51BLU M.PALANCA", "ref": "3710015770C"}, {"lkn": "PF-325478", "desc": "VALV. 6 VIAS EvoSIX M.63/2F CR 3/4” DN15 - Kv 1.25", "ref": "6401590513C"}, {"lkn": "PF-325479", "desc": "VALV. 6 VIAS EvoSIX M.63/2F CR 3/4” DN20 - Kv 2.80", "ref": "6401798510C"}, {"lkn": "PF-325480", "desc": "VALV. 6 VIAS EvoSIX M.63/2F CR 3/4” DN20 - Kv 4.00", "ref": "6401790550C"}, {"lkn": "PF-325481", "desc": "ADAPT. 3/4' x 16x12,4x16 M.3015 AMARILLO", "ref": "9601210670C"}, {"lkn": "PF-325482", "desc": "ADAPT. 3/4´X18X14X18 M.3015SCR GIALLO MULTICAPA", "ref": "9601490050C"}, {"lkn": "PF-325483", "desc": "VALV. ESF. C/RACOR LOCO Y V.RETENCION 3/4´H-1/2´H M.42MET", "ref": "3702034000C"}, {"lkn": "PF-325484", "desc": "VALV. ESF. C/RACOR LOCO Y V.RETENCION 3/4´H-3/4´H M.42MET", "ref": "3702034010C"}, {"lkn": "PF-325485", "desc": "VALV. ESF. C/RACOR LOCO Y V.RETENCION 3/4´H-1/2´M M.42MET/1", "ref": "3701528060C"}, {"lkn": "PF-325486", "desc": "VALV. ESF. C/RACOR LOCO Y V.RETENCION 3/4´H-3/4´M M.42MET/1", "ref": "3702214000C"}, {"lkn": "PF-325487", "desc": "VALV. ESF. C/RACOR LOCO Y V.RETENCION 1´H-3/4´M M.42MET/1", "ref": "3702514280C"}, {"lkn": "PF-325490", "desc": "FILTRO ASIENTO INCLINADO 3´ M.170", "ref": "1008030000C"}, {"lkn": "PF-325491", "desc": "FILTRO ASIENTO INCLINADO 4´ M.170", "ref": "1010030000C"}, {"lkn": "PF-325492", "desc": "FILTRO ASIENTO INCLINADO 1/2´ M.168/O", "ref": "1001510000C"}, {"lkn": "PF-325493", "desc": "FILTRO ASIENTO INCLINADO 3/4´ M.168/O", "ref": "1002010000C"}, {"lkn": "PF-325494", "desc": "FILTRO ASIENTO INCLINADO 1´ M.168/O", "ref": "1002510000C"}, {"lkn": "PF-325495", "desc": "FILTRO ASIENTO INCLINADO 1.1/4´ M.168/O", "ref": "1003210000C"}, {"lkn": "PF-325496", "desc": "FILTRO ASIENTO INCLINADO 1.1/2´ M.168/O", "ref": "1004010000C"}, {"lkn": "PF-325497", "desc": "FILTRO ASIENTO INCLINADO 2´ M.168/O", "ref": "1005010000C"}, {"lkn": "PF-325498", "desc": "FILTRO ASIENTO INCLINADO 2.1/2´ M.170", "ref": "1007030000C"}, {"lkn": "PF-325499", "desc": "KIT HIDRAULICO PCS M.XT704G 1/2´ 150L/H CON AISLANTE", "ref": "6201510991C"}, {"lkn": "PF-325500", "desc": "UNIDAD DE CONTABILIZACION OPTIMETER M.UC/FCI - 1.1/4\" x 3/4\" para ACS y AFS con aislante", "ref": "6203220040C"}, {"lkn": "PF-325503", "desc": "KIT HIDRAULICO PCS M.XT701 1/2\" 150L/H", "ref": "6201510790C"}, {"lkn": "PF-325506", "desc": "UNIDAD DE CONTABILIZACION ENERGY SAVER M.UC18DFI x 1.850 l/h con Picv, Filterball y aislante", "ref": "6203220001C"}, {"lkn": "PF-325507", "desc": "VALV. ESF. FXF 1/2´ M.52EUR M.MARIPOSA", "ref": "3701514100C"}, {"lkn": "PF-325510", "desc": "VALV. EQUILIBRADO DINAMICO 8\" DN200 200.000L/H M.94FL PICV", "ref": "3720040310C"}, {"lkn": "PF-325511", "desc": "VALV. EQUILIBRADO DINAMICO 6\" DN150 150.000L/H M.94FH PICV", "ref": "3715040600C"}, {"lkn": "PF-325512", "desc": "VALV. EQUILIBRADO DINAMICO 5\" DN125 90.000L/H M.94FL PICV", "ref": "3712540610C"}, {"lkn": "PF-325516", "desc": "MANDO ELECTRO-TERM M.A551O2 NC 120V ON/OFF", "ref": "A551O20001C"}, {"lkn": "PF-325517", "desc": "KIT HIDRAULICO PCS M.XT704G 1/2´ 850L/H CON AISLANTE", "ref": "6201510871C"}, {"lkn": "PF-325518", "desc": "KIT HIDRAULICO PCS M.XT704G 3/4´ 1.000L/H CON AISLANTE", "ref": "6202011011C"}, {"lkn": "PF-325519", "desc": "KIT HIDRAULICO PCS M.XT704G 3/4´ 1.850L/H CON AISLANTE", "ref": "6202010871C"}, {"lkn": "PF-325521", "desc": "KIT HIDRAULICO PCS M.XT704G 1´ 3.300L/H CON AISLANTE", "ref": "XT704G 1´ 3.300L"}, {"lkn": "PF-325523", "desc": "KIT HIDRAULICO PCS M.XT702GNPT 3/4´ 1850L/H - 8,15 GPM CON AISLANTE y Rosca NPT", "ref": "6202010911C"}, {"lkn": "PF-325524", "desc": "KIT HIDRAULICO PCS M.XT1314G 3/4\" 1.850L/H CON AISLANTE + V3V", "ref": "6202211040C"}, {"lkn": "PF-325525", "desc": "MANDO ELECTRO-TERM M.V544O2 NC 24V ON/OFF", "ref": "V544O20001C"}, {"lkn": "PF-325526", "desc": "CAJA 1200X450X110 COLECTOR M.C70/5", "ref": "6712045010C"}, {"lkn": "PF-325552", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1.1/2´ 9.000l/h M.92H PICV", "ref": "3704092000C"}, {"lkn": "PF-325553", "desc": "MANDO P/VALV. PICV 91 y 93 M.0760W NEGRO", "ref": "8203505060C"}, {"lkn": "PF-325554", "desc": "CASCO AISLANTE PARA VALV. PICV M.094IHV 2.1/2\" - Rite", "ref": "6902010800C"}, {"lkn": "PF-325555", "desc": "CASCO AISLANTE PARA VALV. PICV M.094IHV 3\" - Rite", "ref": "6902010840C"}, {"lkn": "PF-325556", "desc": "ACTUADOR ROTATIVO M.SN08 120V-230V para la serie 81 y 83", "ref": "6402410010C"}, {"lkn": "PF-325557", "desc": "KIT HIDRAULICO PCS M.XT1694 1.1/2\" 9.000 L/H C/DYNASTY 92 DN40", "ref": "6204011080C"}, {"lkn": "PF-325558", "desc": "KIT HIDRAULICO PCS M.XT2070 2\" 11.000L/H C/EVOPICV-R 83 DN40", "ref": "0000000427C"}, {"lkn": "PF-325559", "desc": "RECAMBIO MONTURA DETENTOR P/COL. PREM 7035DM de 1\" y 1.1/4\"", "ref": "9602310030C"}, {"lkn": "PF-325560", "desc": "RECAMBIO ASIENTO MONTURA P/COL. PREM 7035DM de 1.1/4\"", "ref": "9603211000C"}, {"lkn": "PF-325561", "desc": "RECAMBIO ASIENTO MONTURA P/COL. PREM 7035DM de 1\"", "ref": "9602511000C"}, {"lkn": "PF-325564", "desc": "SET DE 2 TOMAS DE PRESION para PICV serie 91, 92 y 93  M.T90RB", "ref": "6000715000C"}, {"lkn": "PF-325569", "desc": "FLEXO P FXMUP DN15 1/2´ Macho x 1/2´ Tuerca Loca 50cm", "ref": "8504100240C"}, {"lkn": "PF-325570", "desc": "FLEXO P FXMUP DN19 3/4´ Macho x 3/4´ Tuerca Loca 50cm", "ref": ""}, {"lkn": "PF-325572", "desc": "KIT HIDRAULICO PCS M.XT702 1/2´ 450L/H", "ref": "6201510760C"}, {"lkn": "PF-325573", "desc": "KIT HIDRAULICO PCS M.XT702 1/2´ 850L/H", "ref": "6201510770C"}, {"lkn": "PF-325574", "desc": "KIT HIDRAULICO PCS M.XT702 3/4´ 1850L/H", "ref": "6202010760C"}, {"lkn": "PF-325582", "desc": "KIT HIDRAULICO PCS M.X701GC 1/2\" 150L/H CON AISLANTE + FLEX", "ref": "0000000436C"}, {"lkn": "PF-325583", "desc": "KIT HIDRAULICO PCS M.X701GC 1/2\" 600L/H CON AISLANTE + FLEX", "ref": "0000000435C"}, {"lkn": "PF-325584", "desc": "KIT HIDRAULICO PCS M.X701GC 1/2\" 780L/H CON AISLANTE + FLEX", "ref": "0000000391C"}, {"lkn": "PF-325601", "desc": "ACTUADOR ELECTRO-MECANICO 24V (0-10V) M.VA7482 - 3.2mm sin adaptador", "ref": "6400800320C"}, {"lkn": "PF-325602", "desc": "ACTUADOR ELECTRO-MECANICO 24V (0-10V) M.VA7482 - 6.3mm sin adaptador", "ref": "6400800330C"}, {"lkn": "PF-325605", "desc": "RECAMBIO ADAPTADOR MANDO ELECTRO-TERM M.VA78 PETTINAROLI", "ref": "8007805000C"}, {"lkn": "PF-325606", "desc": "UNIDAD DE CONTABILIZACION OPTIMETER M.UC/C2I - 1.1/4\" x 3/4\" para ACS (2 viv) con aislante", "ref": "6203220060C"}, {"lkn": "PF-325607", "desc": "UNIDAD DE CONTABILIZACION OPTIMETER M.UC/C3I - 1.1/4\" x 3/4\" para ACS (3 viv) con aislante", "ref": "6203220050C"}, {"lkn": "PF-325608", "desc": "VALV. ESF. 1.1/4´ M.52T/3RM C/RACOR MARIPOSA ROJA C/T.Termometro", "ref": "3703212600C"}, {"lkn": "PF-325609", "desc": "VALV. ESF. 1.1/4´X1.1/4´ M.52CE/3B C/RACOR M.MARIPOSA", "ref": "3703225190C"}, {"lkn": "PF-325610", "desc": "PURGADOR MANUAL M.VS620 - 1/2”", "ref": "6001510000C"}, {"lkn": "PF-325611", "desc": "LLAVE VACIADO 1/2\" - 15mm M.148SC", "ref": "3701511300C"}, {"lkn": "PF-325612", "desc": "ADAPTADOR MANDO ELECTRO-TERM PARA COLECTOR UPONOR SEGUN MUESTRA CLIENTE", "ref": "VA10"}, {"lkn": "PF-325613", "desc": "ACTUADOR ELECTRO-MECANICO 24V (0-10V) M.VA7493 - max 8,5 mm - con adaptador", "ref": "6400800240C"}, {"lkn": "PF-325614", "desc": "VALV. EQUILIBRADO DINAMICO M-M 1/2´ 450L/H M.92XL/2 PICV Sin t.presion", "ref": "3701592240C"}, {"lkn": "PF-325615", "desc": "KIT HIDRAULICO PCS M.X702GA 1/2´ 150L/H CON AISLANTE + FLEX", "ref": "0000000364C"}, {"lkn": "PF-325616", "desc": "KIT HIDRAULICO PCS M.X702GA 1/2´ 450L/H CON AISLANTE + FLEX", "ref": "0000000356C"}, {"lkn": "PF-325617", "desc": "KIT HIDRAULICO PCS M.X702GA 1/2´ 850L/H CON AISLANTE + FLEX", "ref": "0000000365C"}, {"lkn": "PF-325618", "desc": "KIT HIDRAULICO PCS M.X702GA 3/4´ 1.000L/H CON AISLANTE + FLEX", "ref": "0000000355C"}, {"lkn": "PF-325619", "desc": "KIT HIDRAULICO PCS M.X702GA 3/4´ 1.850L/H CON AISLANTE + FLEX", "ref": "0000000366C"}, {"lkn": "PF-325620", "desc": "KIT HIDRAULICO PCS M.X702GA 3/4\"-1\" 2.500L/H CON AISLANTE + FLEX", "ref": "0000000384C"}, {"lkn": "PF-325621", "desc": "KIT HIDRAULICO PCS M.X702GA 3/4\"-1\" 3.300L/H CON AISLANTE + FLEX", "ref": "0000000386C"}, {"lkn": "PF-325622", "desc": "KIT HIDRAULICO PCS M.X880GA 1\" 5.200L/H CON AISLANTE + FLEX", "ref": "0000000413C"}, {"lkn": "PF-325623", "desc": "VALV. EQUILIBRADO TERMOSTATICA para ACS M.TB20 1/2\"_TBV", "ref": "3701591510C"}, {"lkn": "PF-325624", "desc": "VALV. EQUILIBRADO TERMOSTATICA para ACS M.TB20 3/4\"_TBV", "ref": "3702091510C"}, {"lkn": "PF-325625", "desc": "VALV. EQUILIBRADO TERMOSTATICA para ACS M.TB30 1/2\" con ANTILEGIONELA_TBV", "ref": "3701591520C"}, {"lkn": "PF-325626", "desc": "VALV. EQUILIBRADO TERMOSTATICA para ACS M.TB30 3/4\" con ANTILEGIONELA_TBV", "ref": "3702091530C"}, {"lkn": "PF-325627", "desc": "VALV. EQUILIBRADO TERMOSTATICA para ACS M.TB50 1/2\" con ANTILEGIONELA MOTORIZABLE_TBV", "ref": "3701591530C"}, {"lkn": "PF-325628", "desc": "VALV. EQUILIBRADO TERMOSTATICA para ACS M.TB50 3/4\" con ANTILEGIONELA MOTORIZABLE_TBV", "ref": "3702091550C"}, {"lkn": "PF-325629", "desc": "VALV. RETENCION para TB M.0TB00CK 1/2\" M x 1/2\" F", "ref": "1801591420C"}, {"lkn": "PF-325630", "desc": "VALV. RETENCION para TB M.0TB00CK 3/4\" M x 3/4\" F", "ref": "1802091420C"}, {"lkn": "PF-325631", "desc": "FLEXO P FXMUP DN19 3/4´ Macho x 3/4´ Tuerca Loca 30cm", "ref": "8501200240C"}, {"lkn": "PF-325632", "desc": "FLEXO P FXMUP DN19 3/4´ Macho x 3/4´ Tuerca Loca 35cm", "ref": "8502200240C"}, {"lkn": "PF-325633", "desc": "FLEXO P FXMUP DN25 1´ Macho x 1´ Tuerca Loca 30cm", "ref": "8502500250C"}, {"lkn": "PF-325634", "desc": "FLEXO P FXMUP DN25 1´ Macho x 1´ Tuerca Loca 35cm", "ref": "8503900240C"}, {"lkn": "PF-325635", "desc": "VALV. ESF. FXF 1/2´ M.52CET con prolongación de plástico", "ref": "3701525050C"}, {"lkn": "PF-325636", "desc": "VALV. ESF. FXF 3/4´ M.52CET con prolongación de plástico", "ref": "3702025050C"}, {"lkn": "PF-325637", "desc": "VALV. ESF. FXF 1´ M.52CET con prolongación de plástico", "ref": "3702525050C"}, {"lkn": "PF-325638", "desc": "VALV. ESF. FXF 1.1/4´ M.52CET con prolongación de plástico", "ref": "3703225050C"}, {"lkn": "PF-325639", "desc": "VALV. ESF. FXF 1.1/2´ M.52CETI con prolongación de plástico", "ref": "3704015180C"}, {"lkn": "PF-325640", "desc": "VALV. ESF. FXF 2´ M.52CETI con prolongación de plástico", "ref": "3705015180C"}, {"lkn": "PF-325641", "desc": "RACOR CONEXION para kits UC/C M.0UC/C - 1.1/4\"", "ref": "9603210110C"}, {"lkn": "PF-325642", "desc": "RECAMBIO RACOR 2P M.B90CIL 1\" PARA PICV 92L Y 92H y KITS 1\"", "ref": "9603990000C"}, {"lkn": "PF-325643", "desc": "RECAMBIO RACOR 2P M.B91 1.1/4\" PARA PICV 92H", "ref": "9605011080C"}, {"lkn": "PF-325644", "desc": "COLECTOR LINEAL PREM 1X3/4X18X4 M.7035TEM", "ref": "9621212020C"}, {"lkn": "PF-325651", "desc": "KIT HIDRAULICO PCS M.XT1694G 1.1/2\" 9.000 L/H C/DYNASTY 92 DN40 + AISLANTE", "ref": "6204011081C"}, {"lkn": "PF-325652", "desc": "VALVULA CONTROL 3V 1/2\" - DN10 M.663 - Kv 0.63", "ref": "6401613000C"}, {"lkn": "PF-325653", "desc": "VALVULA CONTROL 3V 1/2\" - DN10 M.663 - Kv 1.00", "ref": "6401713000C"}, {"lkn": "PF-325655", "desc": "CASCO AISLANTE PARA VALV. PICV M.092IHV calef. para 92H de 1.1/4\"", "ref": "6902011250C"}, {"lkn": "PF-325656", "desc": "CASCO AISLANTE PARA VALV. PICV M.092IHV calef. para 92H de 1.1/2\"", "ref": "6902011260C"}, {"lkn": "PF-325657", "desc": "MANDO PALANCA M.051PET/PFM 75mm (1/4” - 3/8” - 1/2”) PARA SERIE 51", "ref": "8207545150C"}, {"lkn": "PF-325658", "desc": "MANDO PALANCA M.051PET/PFM 95mm (3/4”) PARA SERIE 51", "ref": "8209545150C"}, {"lkn": "PF-325659", "desc": "MANDO PALANCA M.051PET/PFM 120mm (1” - 1”1/4) PARA SERIE 51", "ref": "8212045150C"}, {"lkn": "PF-325660", "desc": "MANDO PALANCA M.051PET/PFM 150mm (1”1/2 - 2”) PARA SERIE 51", "ref": "8215045150C"}, {"lkn": "PF-325661", "desc": "TUERCA HEXAGONAL M.1032 PARA MANDOS PALANCA (1/4” - 3/8” - 1/2” - 3/4”)", "ref": "7701410008C"}, {"lkn": "PF-325662", "desc": "TUERCA HEXAGONAL M.1032 PARA MANDOS PALANCA (1” - 1 1/4”)", "ref": "7701710008C"}, {"lkn": "PF-325663", "desc": "TUERCA HEXAGONAL M.1032 PARA MANDOS PALANCA (1 1/2” - 2”)", "ref": "7702110008C"}, {"lkn": "PF-325664", "desc": "REGULADOR DE PRESION DIFERENCIAL M.092D para la PICV M.92H 1/2 850L/H", "ref": "9301511200C"}, {"lkn": "PF-325665", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF2SE DN65 - 2.1/2\" MANDO PALANCA", "ref": "3706541400C"}, {"lkn": "PF-325666", "desc": "KIT DE CONTABILIZ. ENERGY SAVER SWITCH M.KCD04/08DF 450 l/h x 850 l/h con Picv y Filterball", "ref": "6201520020C"}, {"lkn": "PF-325667", "desc": "VALV. EQUILIBRADO ESTATICO M.SB1N H-H DN65 - 2.1/2\" Bridada", "ref": "3706541300C"}, {"lkn": "PF-325668", "desc": "VALV. EQUILIBRADO ESTATICO M.SB1N H-H DN80 - 3\" Bridada", "ref": "3708041300C"}, {"lkn": "PF-325669", "desc": "VALV. EQUILIBRADO ESTATICO M.SB1N H-H DN100 - 4\" Bridada", "ref": "3710141300C"}, {"lkn": "PF-325671", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF2SE DN80 - 3\"  MANDO PALANCA", "ref": "3708041400C"}, {"lkn": "PF-325672", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF2SE DN100 - 4\"  MANDO PALANCA", "ref": "3710041400C"}, {"lkn": "PF-325673", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF2SE DN125 - 5\"  MANDO PALANCA", "ref": "3712541400C"}, {"lkn": "PF-325674", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF2SE DN150 - 6\" MANDO PALANCA", "ref": "3715041400C"}, {"lkn": "PF-325675", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF2SE DN200 - 8\"  MANDO PALANCA", "ref": "3720041400C"}, {"lkn": "PF-325676", "desc": "RECAMBIO ADAPTADOR M.0MDP para IMI para MANOMETRO DIGITAL MD (juego 2 uds)", "ref": "7401510001C"}, {"lkn": "PF-325691", "desc": "KIT HIDRAULICO PCS M.X701GC 3/4\" 1.000L/H CON AISLANTE + FLEX", "ref": "0000000389C"}, {"lkn": "PF-325692", "desc": "KIT DE CONTABILIZ. ENERGY SAVER SWITCH M.KCD04/10DF 450 l/h x 1.000 l/h con Picv y Filterball", "ref": "6201520040C"}, {"lkn": "PF-325693", "desc": "KIT DE CONTABILIZ. ENERGY SAVER SWITCH M.KCD08/08DF 850 l/h x 850 l/h con Picv y Filterball", "ref": "6201520050C"}, {"lkn": "PF-325694", "desc": "KIT DE CONTABILIZ. ENERGY SAVER SWITCH M.KCD08/10DF 850 l/h x 1.000 l/h con Picv y Filterball", "ref": "6201520030C"}, {"lkn": "PF-325695", "desc": "VALV. RETENCION M.188 GLORY HH 1/2\"", "ref": "1801510010C"}, {"lkn": "PF-325696", "desc": "VALV. RETENCION M.188 GLORY HH 3/4\"", "ref": "1802010010C"}, {"lkn": "PF-325697", "desc": "VALV. RETENCION M.188 GLORY HH 1\"", "ref": "1802510010C"}, {"lkn": "PF-325698", "desc": "VALV. RETENCION M.188 GLORY HH 1.1/4\"", "ref": "1803210010C"}, {"lkn": "PF-325699", "desc": "VALV. RETENCION M.188 GLORY HH 1.1/2\"", "ref": "1804010010C"}, {"lkn": "PF-325700", "desc": "VALV. RETENCION M.188 GLORY HH 2\"", "ref": "1805010010C"}, {"lkn": "PF-325701", "desc": "VALV. RETENCION M.188 GLORY HH 2.1/2\"", "ref": "1807010010C"}, {"lkn": "PF-325702", "desc": "VALV. RETENCION M.188 GLORY HH 3\"", "ref": "1808010010C"}, {"lkn": "PF-325703", "desc": "VALV. RETENCION M.188 GLORY HH 4\"", "ref": "1810010010C"}, {"lkn": "PF-325704", "desc": "KIT HIDRAULICO PCS M.X701GC 3/4\" 1.500L/H CON AISLANTE + FLEX", "ref": "0000000390C"}, {"lkn": "PF-325712", "desc": "KIT HIDRAULICO PCS M.XT1680 1.1/4\" 6.000 L/H C/EVOPICV-R 83", "ref": "0000000376C"}, {"lkn": "PF-325715", "desc": "ACTUADOR ELECTRO-MECANICO 120V-230V ON/OFF - 3 puntos M.RVAZ2 - max 8,5 mm", "ref": "6400800370C"}, {"lkn": "PF-325727", "desc": "CASCO AISLANTE M.I702HV PARA XT702 1/2\" - 150/450 l/h Motor Externo", "ref": "6902010890C"}, {"lkn": "PF-325736", "desc": "UNIDAD DE CONTABILIZACION ENERGY SAVER M.UC10DFI x 1.000 l/h con Picv, Filterball y aislante", "ref": "6203220030C"}, {"lkn": "PF-325738", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF2SE DN50 - 2\" MANDO PALANCA", "ref": "3705041400C"}, {"lkn": "PF-325739", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF2SE DN40 - 1.1/2\" MANDO PALANCA", "ref": "3704041400C"}, {"lkn": "PF-325740", "desc": "FLEXO P FXMUP DN32 1.1/4\" Macho x 1.1/4\" Tuerca Loca 30cm", "ref": "8503200250C"}, {"lkn": "PF-325741", "desc": "FLEXO P FXMUP DN32 1.1/4\" Macho x 1.1/4\" Tuerca Loca 45cm", "ref": "8503200450C"}, {"lkn": "PF-325742", "desc": "FLEXO P FXMUP DN40 1.1/2\" Macho x 1.1/2\" Tuerca Loca 30cm", "ref": "8504000200C"}, {"lkn": "PF-325743", "desc": "CASCO AISLANTE M.I702HV PARA XT702 1/2\" - 850 l/h Motor Externo", "ref": "6902010900C"}, {"lkn": "PF-325744", "desc": "KIT ENERGY SAVER COMPACT R M.XT714G 1/2\" x 3/4\" 450L/H CON AISLANTE", "ref": ""}, {"lkn": "PF-325745", "desc": "KIT ENERGY SAVER COMPACT R M.XT714G 1/2\" x 3/4\" 850L/H CON AISLANTE", "ref": ""}, {"lkn": "PF-325746", "desc": "KIT ENERGY SAVER COMPACT R M.XT714G 1/2\" x 3/4\" 1.000L/H CON AISLANTE", "ref": "6202011111C"}, {"lkn": "PF-325747", "desc": "KIT ENERGY SAVER COMPACT R M.XT714G 1/2\" x 3/4\" 1.850L/H CON AISLANTE", "ref": "6202011121C"}, {"lkn": "PF-325748", "desc": "VALV. 6 VIAS EvoSIX M.63 CR 3/4” DN15 - Kv 1.25 Rosca NPT", "ref": "6401690531C"}, {"lkn": "PF-325752", "desc": "MANDO ELECTRO-TERM M.MT541O2 NC 120V ON/OFF 4 mm", "ref": "MT54102001C"}, {"lkn": "PF-325753", "desc": "MANDO ELECTRO-TERM M.A561O2 NC 120V ON/OFF PICV 6,5 mm", "ref": "A561O20001C"}, {"lkn": "PF-325754", "desc": "VALV. EQUILIBRADO ESTATICO M.SB1N H-H DN125 - 5\" Bridada", "ref": "3712541300C"}, {"lkn": "PF-325755", "desc": "KIT HIDRAULICO PCS M.XT2070 2\" 18.000L/H C/EVOPICV-R 83 DN50", "ref": "0000000430C"}, {"lkn": "PF-325757", "desc": "KIT HIDRAULICO PCS M.XT700G 3/4´ 1.500L/H CON AISLANTE", "ref": "6202210711C"}, {"lkn": "PF-325760", "desc": "CASCO AISLANTE para EvoSIX M.063GI DN15", "ref": "9402010300C"}, {"lkn": "PF-325762", "desc": "KIT DE CONTABILIZ. ENERGY SAVER COMPACT M.KCX700CDG 1/2\" x 3/4” 1.000 l/h", "ref": "6201520060C"}, {"lkn": "PF-325764", "desc": "VALV. EQUILIBRADO DINAMICO H-H 3/4\" 1.000L/H M.92L1 PICV Sin t.presion", "ref": "3702092100C"}, {"lkn": "PF-325765", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1.1/4\" 5.200L/H M.92H1 PICV Sin t.presion", "ref": "3703292020C"}, {"lkn": "PF-325768", "desc": "FLEXO P FXUPUP DN13 1/2´ Hembra Tuerca Loca Asiento Plano 30.5cm", "ref": "FXUPUP DN13 1/2 30.5cm"}, {"lkn": "PF-325769", "desc": "FLEXO P FXUPUP DN15 3/4´ Hembra Tuerca Loca Asiento Plano 30.5cm", "ref": "FXUPUP DN15 3/4 30.5cm"}, {"lkn": "PF-325770", "desc": "RECAMBIO RACOR 2P M.B90CILG PARA E.ESTATICO M.B90TVCI 3/4\"", "ref": "9603291170C"}, {"lkn": "PF-325771", "desc": "COLECTOR COPLANAR MODULAR E.SAVER M.8090 1.1/4\" x 3/4\"", "ref": "8090 1.1/4\" x 3/4\""}, {"lkn": "PF-325772", "desc": "UNIDAD DE CONTABILIZACION ENERGY SAVER M.UC25DFI x 2.500 l/h con Picv, Filterball y aislante", "ref": "6203220080C"}, {"lkn": "PF-325777", "desc": "CASCO AISLANTE PARA ENERGY SAVER M.UC10EFI x 1.000 l/h", "ref": ""}, {"lkn": "PF-325778", "desc": "KIT HIDRAULICO PCS M.XT716G 1/2´ 850L/H CON AISLANTE + Venturi", "ref": "DB_XT716G_12_850LH"}, {"lkn": "PF-325780", "desc": "KIT HIDRAULICO PCS M.XT704G 1´ 2.500L/H CON AISLANTE", "ref": "6202510921C"}, {"lkn": "PF-325781", "desc": "RACOR 2P M.1007MC 3/4'-3/4' M-H ASIENTO PLANO-ESFEROCONICO", "ref": "9602011210C"}, {"lkn": "PF-325782", "desc": "RACOR 2P M.1007M 3/4'-3/4' M-H ESFEROCONICO L80mm", "ref": "9602010090C"}, {"lkn": "PF-325784", "desc": "RECAMBIO RACOR 2P M.B90T 1.1/2\" PARA PICV 83 (Set 2 uds)", "ref": "9605711011C"}, {"lkn": "PF-325787", "desc": "FLEXO P FXMUP DN19 3/4´ Macho npt x 3/4´ Tuerca Loca bsp 40cm + Aislante", "ref": "8501900400C"}, {"lkn": "PF-325788", "desc": "KIT HIDRAULICO PCS M.XT700 NPT 3/4´ 1.000L/H", "ref": "6202210721C"}, {"lkn": "PF-325789", "desc": "KIT HIDRAULICO PCS M.XT700 NPT 3/4´ 1.500L/H", "ref": "6202210731C"}, {"lkn": "PF-325790", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1/2\" - 3,74 GPM - NPT M.92HN1 PICV Sin t.presion", "ref": "3701592250C"}, {"lkn": "PF-325791", "desc": "VALV. EQUILIBRADO DINAMICO H-H 3/4\" - 8,15 GPM - NPT M.92HN1 PICV Sin t.presion", "ref": "3702092200C"}, {"lkn": "PF-325792", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1.1/4\" - 22,89 GPM - NPT M.92HN1 PICV Sin t.presion", "ref": "3703292031C"}, {"lkn": "PF-325793", "desc": "ACTUADOR ELECTRO-MECANICO 24V (0-10V) M.VA7482-A sin adaptador", "ref": "6400800410C"}, {"lkn": "PF-325794", "desc": "FILTRO DESFANGADOR MAGNETICO XL M.K103/3 ORIENTABLE 360º DN25 C/VALVULAS 3/4\"", "ref": "1010310050C"}, {"lkn": "PF-325797", "desc": "VALV. EQUILIBRADO DINAMICO H-H 2´ 14.000l/h M.92H PICV", "ref": "3705092000C"}, {"lkn": "PF-325798", "desc": "ACTUADOR ELECTRO-MECANICO 24V - (0-10V) M.RVAZ2C - max 8,5 mm", "ref": "6400800380C"}, {"lkn": "PF-325799", "desc": "CONTADOR ENERGIA ENERGY METER  M.EM303 1.500 l/h MBUS BAT", "ref": "EM3MB15BI0C"}, {"lkn": "PF-325800", "desc": "KIT DE CONTABILIZ. ENERGY SAVER COMPACT M.KCX700CDG 1/2\" x 3/4” 1.850 l/h", "ref": "6201520080C"}, {"lkn": "PF-325801", "desc": "KIT DE CONTABILIZ. ENERGY SAVER COMPACT M.KCX700CDHG 1/2\" x (3/4\" x 1\") 1.850 l/h", "ref": "6201520070C"}, {"lkn": "PF-325802", "desc": "KIT DE CONTABILIZ. ENERGY SAVER COMPACT M.KCX700CDG 1/2\" x 3/4” 850 l/h", "ref": "6201520090C"}, {"lkn": "PF-325803", "desc": "KIT DE CONTABILIZ. ENERGY SAVER COMPACT M.KCX700CDG 3/4\" x (3/4\" x 1\") 2.500 l/h", "ref": "6202020160C"}, {"lkn": "PF-325804", "desc": "KIT DE CONTABILIZ. ENERGY SAVER PLUS M.KCX800PEG 1\" x 1” 3.300 l/h", "ref": "6202520000C"}, {"lkn": "PF-325805", "desc": "KIT DE CONTABILIZ. ENERGY SAVER PLUS M.KCX800PEG 1\" x 1” 5.200 l/h", "ref": "6202520030C"}, {"lkn": "PF-325806", "desc": "KIT DE CONTABILIZ. ENERGY SAVER PLUS M.KCX169PEG 1.1/2\" x 9.000 l/h", "ref": "6204020020C"}, {"lkn": "PF-325818", "desc": "VALV. ESF. MXM 3/4´ M.52CE/2 M.MARIPOSA", "ref": "3702018110C"}, {"lkn": "PF-325820", "desc": "VALV. ESF.  3/4´H-3/4´M M.52METR/1 AVAN-CONT.", "ref": "3702224060C"}, {"lkn": "PF-325821", "desc": "RECAMBIO VALVULA BYPASS M.XT7BP 3/4\" x 1.1/8\" para KIT PCS XT700", "ref": "2902090800C"}, {"lkn": "PF-325822", "desc": "UNIDAD DE CONTABILIZACION ENERGY SAVER M.UC10EF x 1.000 l/h con Picv, Filterball", "ref": ""}, {"lkn": "PF-325824", "desc": "KIT HIDRAULICO PCS M.XT700G 1/2´ 780L/H CON AISLANTE", "ref": "6201510721C"}, {"lkn": "PF-325825", "desc": "CASCO AISLANTE PARA VALV. PICV M.092IHV calef. para 92H de  2\"", "ref": "6902011500C"}, {"lkn": "PF-325826", "desc": "VALV. EQUILIBRADO ESTATICO M.SB1N H-H DN150 - 6\" Bridada", "ref": "3715041300C"}, {"lkn": "PF-325829", "desc": "SISTEMA BLOQUEO PARA VALVULA PETT M.058P TIPO 2", "ref": "9602815150C"}, {"lkn": "PF-325830", "desc": "VALV. ESF. FXF 3/4´ M.51EU M.PALANCA", "ref": "3702004050C"}, {"lkn": "PF-325832", "desc": "ACTUADOR PARA VALV. EQUILIBRADO PICV 2.1/2\" DN65 30.000L/H M.M94F2", "ref": "6407000301C"}, {"lkn": "PF-325841", "desc": "VALV. EQUILIBRADO DINAMICO M-M 1´ 1.000L/H M.92XL/2 PICV Sin t.presion", "ref": "3702592240C"}, {"lkn": "PF-325842", "desc": "VALV. EQUILIBRADO DINAMICO M-M 1´ 1.850L/H M.92XH/2 PICV Sin t.presion", "ref": "3702092230C"}, {"lkn": "PF-325843", "desc": "FLEXO P FXUPUP DN32 1.1/4´ Hembra Tuerca Loca Asiento Plano 30cm", "ref": "FXUPUP DN32 1.1/4´ 30CM"}, {"lkn": "PF-325844", "desc": "FLEXO P FXUPUP DN32 1.1/4´ Hembra Tuerca Loca Asiento Plano 50cm", "ref": "FXUPUP DN32 1.1/4´ 50CM"}, {"lkn": "PF-325849", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF2SEGC DN250 - 10\"  VOLANTE REDUCTOR", "ref": "3725041400C"}, {"lkn": "PF-325850", "desc": "VALV. ESF. 1\" X 3/4\" M.AL52/3R M.MARIPOSA -  M.Esferoconico x F", "ref": "9702038680C"}, {"lkn": "PF-325851", "desc": "Valvula de corte con bola conexiones soldadas FXF 3/8” M.S70S (refrigerantes HFC/HFO)", "ref": "3201020000C"}, {"lkn": "PF-325852", "desc": "Valvula de corte con bola conexiones soldadas FXF 5/8” M.S70S (refrigerantes HFC/HFO)", "ref": "3201620000C"}, {"lkn": "PF-325853", "desc": "ACTUADOR ELECTRO-MECANICO 24V (0-10V) M.VA7482-A sin adaptador (Embalaje/caja a granel)", "ref": "6400800440C"}, {"lkn": "PF-325854", "desc": "CONTADOR ENERGIA ENERGY METER M.EM403 2.500 l/h 1\" BACnet (MS/TP) 230V AC", "ref": "EM4BA252I0C"}, {"lkn": "PF-325855", "desc": "CONTADOR ENERGIA ENERGY METER M.EM403 3.500 l/h 1.1/4\" BACnet (MS/TP) 230V AC", "ref": "EM4BA352I0C"}, {"lkn": "PF-325856", "desc": "KIT HIDRAULICO PCS M.XT2074G 2\" 14.000 L/H C/DYNASTY 92 DN50 + AISLANTE", "ref": "6205011081C"}, {"lkn": "PF-325858", "desc": "CASCO AISLANTE M.I702HV PARA XT702 3/4\" - 1000/1850 l/h Motor Externo", "ref": "6902010880C"}, {"lkn": "PF-325859", "desc": "CASCO AISLANTE M.I702HV PARA XT702 1\"-3/4\" - 2500/3300 l/h Motor Externo", "ref": "6902010990C"}, {"lkn": "PF-325860", "desc": "CONTADOR ENERGIA ENERGY METER  M.EM403 1.500 l/h MBUS BAT", "ref": "EM4MB15BI0C"}, {"lkn": "PF-325861", "desc": "KIT HIDRAULICO PCS M.XT2071 2\" 18.000L/H C/EVOPICV-R 83 DN50", "ref": "0000000479C"}, {"lkn": "PF-325862", "desc": "KIT HIDRAULICO PCS M.XT1681 1.1/4\" 6.000 L/H C/EVOPICV-R 83", "ref": "0000000480C"}, {"lkn": "PF-325863", "desc": "KIT HIDRAULICO PCS M.XT1691 1.1/2\" 9.000 L/H C/EVOPICV-R 83 DN40", "ref": "0000000481C"}, {"lkn": "PF-325864", "desc": "KIT ENERGY SAVER COMPACT R M.XT714 1/2\" x 3/4\" 1.850L/H", "ref": "6202011120C"}, {"lkn": "PF-325865", "desc": "CASCO AISLANTE PARA KIT ENERGY SAVER COMPACT R M.XT714 1/2\" x 3/4\" 1000 y 1850L/H", "ref": "6902011290C"}, {"lkn": "PF-325866", "desc": "TE LATON M.35M 3/4\" x 3/8\"", "ref": "7602090120C"}, {"lkn": "PF-325867", "desc": "TE LATON M.055/F 1\" x 1\" x 1/2\"", "ref": "8502611100"}, {"lkn": "PF-325869", "desc": "PORTA SONDA M.8090 3/8\" x M10", "ref": "9601910080C"}, {"lkn": "PF-325870", "desc": "REDUCCION LATON M.0TB02 1/2\" x M10", "ref": "9601590220C"}, {"lkn": "PF-325871", "desc": "RACOR 2P LATON PARA CONTADOR ENERG. M.701C 3/4\" (3/4\"M x 1\"F)", "ref": "6002010180C"}, {"lkn": "PF-325872", "desc": "RACOR 2P LATON PARA CONTADOR ENERG. M.701C 1\" (1\"M x 1 1/4\"F)", "ref": "6002510180C"}, {"lkn": "PF-325873", "desc": "KIT HIDRAULICO PCS M.XT700G 3/4´ 1.000L/H CON AISLANTE", "ref": "XT700G 3/4' 1000L/H"}, {"lkn": "PF-325876", "desc": "ACTUADOR PARA VALV. EQUILIBRADO PICV 6\" DN150 150.000L/H M.M94F2", "ref": "6415100301C"}, {"lkn": "PF-325877", "desc": "VALV. ESF.  1´H-1´H M.52METR AVAN-CONT.", "ref": "3702804030C"}, {"lkn": "PF-325878", "desc": "CONTADOR ENERGIA ENERGY METER M.EM403 1.500 l/h 3/4\" MODBUS (RTU) 230V AC", "ref": "EM4MO152I0C"}, {"lkn": "PF-325882", "desc": "SOPORTE para EvoSIX M.063ZA DN20", "ref": "8201045000C"}, {"lkn": "PF-325883", "desc": "CASCO AISLANTE M.I704HV PARA XT704 1/2\" - 150/450 l/h Motor Externo", "ref": ""}, {"lkn": "PF-325884", "desc": "VALV. ESF. PORTASONDA M10X1  1\" M.52CES", "ref": "3702508020C"}, {"lkn": "PF-325885", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1\" 2.500L/H M.92L1 PICV Sin t.presion", "ref": "3702592100C"}, {"lkn": "PF-325886", "desc": "VALV. EQUILIBRADO DINAMICO H-H 1\" 3.300L/H M.92H1 PICV Sin t.presion", "ref": "3702892180C"}, {"lkn": "PF-325888", "desc": "TAPON 1.1/2´M C/GUARN. M.3522M+O P/COLEC.LINEALES", "ref": "9404910000C"}, {"lkn": "PF-325889", "desc": "KIT HIDRAULICO PCS M.XT2070 2\" 12.000L/H C/EVOPICV-R 83 DN50", "ref": "0000000429C"}, {"lkn": "PF-325890", "desc": "FLEXO P FXMUP DN50 2\" Macho x 2\" Tuerca Loca 30cm", "ref": "8505000260C"}, {"lkn": "PF-325891", "desc": "CONTADOR ENERGIA ENERGY METER  M.EMZ5-U 1.500 l/h MBUS BAT U", "ref": "EM5UMB15I0C"}, {"lkn": "PF-325892", "desc": "CONTADOR ENERGIA ENERGY METER  M.EMZ5-M 1.500 l/h MBUS BAT M", "ref": "EM5MMB15I0C"}, {"lkn": "PF-325895", "desc": "VALV. ESF. C/RACOR LOCO 3/4´H-3/4´M M.209/1B ESCUADRA M.AZUL", "ref": "3702014220C"}, {"lkn": "PF-325896", "desc": "VALV. ESF. C/RACOR LOCO 3/4´H-3/4´H M.209 ESCUADRA M.ROJA", "ref": "3702014210C"}, {"lkn": "PF-325897", "desc": "VALV. ESF. C/RACOR LOCO 3/4´H-3/4´H M.209B ESCUADRA M.AZUL", "ref": "3702014230C"}, {"lkn": "PF-325898", "desc": "ELEVADOR DE VASTAGO / ADAPTADOR DE TEMPERATURA para EVOSIX", "ref": "7406100000C"}, {"lkn": "PF-325904", "desc": "REDUCTOR DE PRESION 1/2\" M.503 - Tª max 80ºC HxH", "ref": "3501520030C"}, {"lkn": "PF-325905", "desc": "REDUCTOR DE PRESION 3/4\" M.503 - Tª max 80ºC HxH", "ref": "3502020030C"}, {"lkn": "PF-325906", "desc": "REDUCTOR DE PRESION 1\" M.503 - Tª max 80ºC HxH", "ref": "3502520030C"}, {"lkn": "PF-325907", "desc": "REDUCTOR DE PRESION 1.1/4\" M.503 - Tª max 80ºC HxH", "ref": "3503220030C"}, {"lkn": "PF-325908", "desc": "REDUCTOR DE PRESION 1.1/2\" M.503 - Tª max 80ºC HxH", "ref": "3504020030C"}, {"lkn": "PF-325909", "desc": "REDUCTOR DE PRESION 2\" M.503 - Tª max 80ºC HxH", "ref": "3505020030C"}, {"lkn": "PF-325910", "desc": "T PORTASONDA 1/2\" M.0EMTS BSP CON RACORES para EM303 y EM403  hasta 1,5 m3/h", "ref": "6001610000C"}, {"lkn": "PF-325911", "desc": "T PORTASONDA 3/4\" M.0EMTS BSP CON RACORES para EM303 y EM403  hasta 2,5 m3/h", "ref": "6002210000C"}, {"lkn": "PF-325912", "desc": "T PORTASONDA 1\" M.0EMTS BSP para EM403 de 3,5 y 6 m3/h", "ref": "6002610000C"}, {"lkn": "PF-325913", "desc": "T PORTASONDA 1.1/2\" M.0EMTS BSP para EM403 de 10 m3/h", "ref": "6004210000C"}, {"lkn": "PF-325914", "desc": "KIT DE CONTABILIZ. ENERGY SAVER PLUS M.KCX207PEG 2\" x 14.000 l/h", "ref": "0000000502C"}, {"lkn": "PF-325915", "desc": "KIT HIDRAULICO PCS M.XT881G 1\" 5.200L/H CON AISLANTE", "ref": "6202511011C"}, {"lkn": "PF-325916", "desc": "KIT HIDRAULICO PCS M.XT1695G 1.1/2\" 9.000 L/H C/DYNASTY 92 DN40 + AISLANTE", "ref": "6204011120C"}, {"lkn": "PF-325922", "desc": "CONTADOR ENERGIA ENERGY METER M.EM403 6.000 l/h MODBUS (RTU) 230V AC", "ref": "EM4MO62I00C"}, {"lkn": "PF-325923", "desc": "CONTADOR ENERGIA ENERGY METER M.EM403 10.000 l/h MODBUS (RTU) 230V AC", "ref": "EM4MO102P0C"}, {"lkn": "PF-325931", "desc": "KIT HIDRAULICO PCS M.XT1314G 1\" 2.500L/H CON AISLANTE + V3V", "ref": "6202511141C"}, {"lkn": "PF-325932", "desc": "KIT HIDRAULICO PCS M.XT1314G 1\" 3.300L/H CON AISLANTE + V3V", "ref": "6202511131C"}, {"lkn": "PF-325933", "desc": "ACTUADOR ELECTRO-MECANICO 24V (0-10V) M.VT194P4 sin adaptador BLUE DRIVE", "ref": "6400800450C"}, {"lkn": "PF-325934", "desc": "FLEXO P FXMUP DN50 2\" Macho x 2\" Tuerca Loca 50cm", "ref": "8505000270C"}, {"lkn": "PF-325938", "desc": "CONTADOR ENERGIA ENERGY METER M.EM603 3.500 l/h 1.1/4\" BACnet ( IP ) 24V AC/DC C/SONDAS DE 4 HILOS", "ref": "EM6BIF154PC+0EMK458650C"}, {"lkn": "PF-325940", "desc": "CONTADOR ENERGIA ENERGY METER M.EM603 100 m3/h DN125 BACnet ( IP ) 24V AC/DC C/SONDAS DE 4 HILOS", "ref": "EM6BIF0144C+0EMK458650C"}, {"lkn": "PF-325941", "desc": "PAREJA DE SONDAS DE 4 HILOS PARA CONTADOR ENERGIA ENERGY METER M.0EMK4P", "ref": "0EMK458650C"}, {"lkn": "PF-325946", "desc": "CONTADOR ENERGIA ENERGY METER M.EM603 400 m3/h DN200 Modbus RTU - 24V AC/DC", "ref": "EM6MOF404PC"}, {"lkn": "PF-325949", "desc": "VALV. EQUILIBRADO TERMOSTATICA para ACS M.TB05 1\" con ANTILEGIONELA_TBV", "ref": "3702591120C"}, {"lkn": "PF-325950", "desc": "VALV. EQUILIBRADO TERMOSTATICA para ACS M.TB05 1.1/4\" con ANTILEGIONELA_TBV", "ref": "3703291120C"}, {"lkn": "PF-325951", "desc": "VALVULA ANTIHIELO M.AG100/2 ROSCA 1\" M x M", "ref": "0102510000C"}, {"lkn": "PF-325952", "desc": "VALVULA ANTIHIELO M.AG100/2 ROSCA 1.1/4\" M x M", "ref": "0103210000C"}, {"lkn": "PF-325958", "desc": "CONTADOR ENERGIA ENERGY METER M.EM403 3.500 l/h MODBUS (RTU) 230V AC", "ref": "EM4MO352I0C"}, {"lkn": "PF-325963", "desc": "CASCO AISLANTE PARA ENERGY SAVER M.UC18DFI x 1.850 l/h", "ref": "NEW"}, {"lkn": "PF-325964", "desc": "CASCO AISLANTE PARA OPTIMETER M.UC/C2I 2 VIVIENDAS", "ref": "NEW"}, {"lkn": "PF-325968", "desc": "RACOR 2P M.1007T 3/4'-1/2'", "ref": "9601210050C"}, {"lkn": "PF-325969", "desc": "RACOR 2P M.701C 3/4'-1/2'", "ref": "6001510180C"}, {"lkn": "PF-325970", "desc": "VALV. EQUILIBRADO DINAMICO M-M 3/4\" 850L/H M.92XVL/2 PICV Sin t.presion", "ref": "3702092260C"}, {"lkn": "PF-325971", "desc": "KIT DE CONTABILIZ. ENERGY SAVER EASY GO M.EG10QFI 3/4” 1.000 l/h", "ref": "6202050000C"}, {"lkn": "PF-325972", "desc": "UNIDAD DE CONTABILIZACION OPTIMETER EASY GO M..... - 3/4\" para ACS con aislante", "ref": "NEW CODE"}, {"lkn": "PF-325973", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF2SE2OC DN100 - 4\"  con ACTUADOR on/off 220V AC", "ref": "NEW CODE"}, {"lkn": "PF-325977", "desc": "CONTADOR AC M.WMZNC 2.5 m3/h 90ºC DN15 R3/4\" 110mm 1 L/Imp.", "ref": "WMZNC: 110 DN15 1/2\"  T90° (calor)"}, {"lkn": "PF-325978", "desc": "CONTADOR AF M.WMZNF 2.5 m3/h 30ºC DN15 R3/4\" 110mm 1 L/Imp.", "ref": "WMZENF250KC"}, {"lkn": "PF-325979", "desc": "CONTADOR AC M.WMZNC 2.5 m3/h 90ºC DN15 R3/4\" 110mm 10L/Imp.", "ref": "WMZNC10K00C"}, {"lkn": "PF-325980", "desc": "CONTADOR AF M.WMZNF 2.5 m3/h 30ºC DN15 R3/4\" 110mm 10L/Imp.", "ref": "WMZNF: 110 DN15  1/2\" T30° (frio)"}, {"lkn": "PF-325982", "desc": "ACTUADOR PARA VALV. EQUILIBRADO PICV 3\" DN80 30.000L/H M.M94F2", "ref": "6408000301C"}, {"lkn": "PF-325983", "desc": "ACTUADOR ELECTRO-MECANICO 3 PTS M.VT192O3 100-240V sin adaptador", "ref": "6400800480C"}, {"lkn": "PF-325984", "desc": "ACTUADOR ELECTRO-MECANICO 3 PTS M.VT194O3 24V sin adaptador", "ref": "6400800490C"}, {"lkn": "PF-325985", "desc": "KIT HIDRAULICO PCS M.XT2075G 2\" 14.000 L/H C/DYNASTY 92 DN50 + AISLANTE", "ref": "6205011161C"}, {"lkn": "PF-325986", "desc": "RECAMBIO JUNTA PARA RACOR 2P Terminator B90TVCI 1.1/2”", "ref": "8105405020C"}, {"lkn": "PF-326000", "desc": "CASCO AISLANTE PARA ENERGY SAVER M.UC08DFI x 850 l/h", "ref": "6902010980C"}, {"lkn": "PF-326008", "desc": "CONTADOR ENERGIA ENERGY METER  M.EM303 2.500 l/h MBUS BAT", "ref": "EM3MB25BI0C"}, {"lkn": "PF-326009", "desc": "CONTADOR ENERGIA ENERGY METER  M.EM403 3.500 l/h MBUS BAT", "ref": "EM4MB35BI0C"}, {"lkn": "PF-326010", "desc": "CONTADOR ENERGIA ENERGY METER  M.EM403 6.000 l/h MBUS BAT", "ref": "EM4MB6BI00C"}, {"lkn": "PF-326012", "desc": "RECAMBIO FILTRO FM028N M.FM 1.1/2\"-2\"", "ref": "9403845070C"}, {"lkn": "PF-326015", "desc": "ACTUADOR PARA VALV. EQUILIBRADO PICV 2\" DN50 20.000L/H M.M94F2", "ref": "6405000301C"}, {"lkn": "PF-326016", "desc": "ACTUADOR PARA VALV. EQUILIBRADO PICV 4\" DN100 55.000L/H M.M94F2", "ref": "6410000301C"}, {"lkn": "PF-326017", "desc": "RECAMBIO JUNTA 1.1/4 PARA Energy Saver Wall UC", "ref": "8103205010"}, {"lkn": "PF-326026", "desc": "CASCO AISLANTE para EvoMAGIC M.0103GI DN25 1\" X 1\"", "ref": "6902011780C"}, {"lkn": "PF-326027", "desc": "RECAMBIO JUNTA M.XT605 1/2\" PARA FLEXIBLES Pettinaroli (bolsa 2 uds)", "ref": "9601510030C"}, {"lkn": "PF-326028", "desc": "RECAMBIO JUNTA M.XT605 3/4\" PARA FLEXIBLES Pettinaroli (bolsa 2 uds)", "ref": "9602010080C"}, {"lkn": "PF-326029", "desc": "RECAMBIO JUNTA M.XT605 1\" PARA FLEXIBLES Pettinaroli (bolsa 2 uds)", "ref": "9603010080  (falta el codigo final)"}, {"lkn": "PF-326030", "desc": "KIT DE CONTABILIZ. ENERGY SAVER SWITCH M.KCD08/18DF 850 l/h x 1.850 l/h con Picv y Filterball", "ref": "6201520120C"}, {"lkn": "PF-326035", "desc": "VALV. ESF. FXF 1/2´ M.51L con hasta prolongada. Maneta verde", "ref": "3701594050C"}, {"lkn": "PF-326036", "desc": "VALV. ESF. FXF 3/4´ M.51L con hasta prolongada. Maneta verde", "ref": "3702094050C"}, {"lkn": "PF-326037", "desc": "VALV. ESF. FXF 1´ M.51L con hasta prolongada. Maneta verde", "ref": "3702594050C"}, {"lkn": "PF-326038", "desc": "VALV. ESF. FXF 1.1/4´ M.51L con hasta prolongada. Maneta verde", "ref": "3703294050C"}, {"lkn": "PF-326039", "desc": "VALV. ESF. FXF 1.1/2´ M.51L con hasta prolongada. Maneta verde", "ref": "3704094050C"}, {"lkn": "PF-326040", "desc": "VALV. ESF. FXF 2´ M.51L con hasta prolongada. Maneta verde", "ref": "3705094050C"}, {"lkn": "PF-326041", "desc": "VALV. ESF. FXF 1/2´ M.277B CON FLORON", "ref": "3401511010C"}, {"lkn": "PF-326044", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-L DN65 - 2.1/2\" MANDO PALANCA", "ref": "3706546020C"}, {"lkn": "PF-326045", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-L DN80 - 3\" MANDO PALANCA", "ref": "3708046020C"}, {"lkn": "PF-326046", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-L DN100 - 4\" MANDO PALANCA", "ref": "3710046020C"}, {"lkn": "PF-326047", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-L DN125 - 5\" MANDO PALANCA", "ref": "3712546020C"}, {"lkn": "PF-326048", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-L DN150 - 6\" MANDO PALANCA", "ref": "3715046020C"}, {"lkn": "PF-326049", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-G DN200 - 8\" VOLANTE REDUCTOR", "ref": "3720046020C"}, {"lkn": "PF-326050", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-G DN250 - 10\" VOLANTE REDUCTOR", "ref": "3725046020C"}, {"lkn": "PF-326051", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-G DN300 - 12\" VOLANTE REDUCTOR", "ref": "NEW"}, {"lkn": "PF-326053", "desc": "CONTADOR ENERGIA ENERGY METER  M.EMZ5-U 1.500 l/h LoRaWan BAT U", "ref": "NEW"}, {"lkn": "PF-326054", "desc": "CONTADOR AC M.WMZU   2,5 m3/h 50ºC DN15 R3/4\" LoRaWan BAT U", "ref": "NEW"}, {"lkn": "PF-326062", "desc": "LLAVE VACIADO 1/2\" - 14,5mm M.146SC", "ref": "3701510560C"}, {"lkn": "PF-326063", "desc": "ACTUADOR ELECTRO-MECANICO 24V (0-10V) M.VT194DT5 sin adaptador BLU-DRIVE-T c/sondas", "ref": "6400800470C"}, {"lkn": "PF-326066", "desc": "REGULADOR DE PRESION DIFERENCIAL M.092D para la PICV M.92H 3/4 1.850L/H", "ref": "9302011084C"}, {"lkn": "PF-326067", "desc": "FLEXO P FXMUP DN15 1/2´ Macho x 1/2´ Tuerca Loca 150cm", "ref": "NEW"}, {"lkn": "PF-326068", "desc": "FLEXO P FXMUP DN15 1/2´ Macho x 1/2´ Tuerca Loca 200cm", "ref": "NEW"}, {"lkn": "PF-326069", "desc": "VALVULA MARIPOSA TIPO LUG M.BF3SE-L DN65 - 2.1/2\" MANDO PALANCA D-INOX EPDM", "ref": "3706546000C"}, {"lkn": "PF-326070", "desc": "VALVULA MARIPOSA TIPO LUG M.BF3SE-L DN80 - 3\" MANDO PALANCA D-INOX EPDM", "ref": "3708046000C"}, {"lkn": "PF-326071", "desc": "VALVULA MARIPOSA TIPO LUG M.BF3SE-L DN100 - 4\" MANDO PALANCA D-INOX EPDM", "ref": "3710046000C"}, {"lkn": "PF-326072", "desc": "VALVULA MARIPOSA TIPO LUG M.BF3SE-L DN125 - 5\" MANDO PALANCA D-INOX EPDM", "ref": "3712546000C"}, {"lkn": "PF-326073", "desc": "VALVULA MARIPOSA TIPO LUG M.BF3SE-L DN150 - 6\" MANDO PALANCA D-INOX EPDM", "ref": "3715046000C"}, {"lkn": "PF-326074", "desc": "FILTRO EN Y HIERRO CON DRENAJE Y BRIDAS ISO M.ST2D DN65 - 2.1/2\"", "ref": "3706546030C"}, {"lkn": "PF-326075", "desc": "FILTRO EN Y HIERRO CON DRENAJE Y BRIDAS ISO M.ST2D DN80 - 3\"", "ref": "3708046030C"}, {"lkn": "PF-326076", "desc": "FILTRO EN Y HIERRO CON DRENAJE Y BRIDAS ISO M.ST2D DN100 - 4\"", "ref": "3710046030C"}, {"lkn": "PF-326077", "desc": "FILTRO EN Y HIERRO CON DRENAJE Y BRIDAS ISO M.ST2D DN125 - 5\"", "ref": "3712546030C"}, {"lkn": "PF-326078", "desc": "FILTRO EN Y HIERRO CON DRENAJE Y BRIDAS ISO M.ST2D DN150 - 6\"", "ref": "3715046030C"}, {"lkn": "PF-326079", "desc": "VALVULA ANTIRETORNO CHECK VALVE BRIDAS ISO M.CK2WD DN65 - 2.1/2\"", "ref": "3706546050C"}, {"lkn": "PF-326080", "desc": "VALVULA ANTIRETORNO CHECK VALVE BRIDAS ISO M.CK2WD DN80 - 3\"", "ref": "3708046050C"}, {"lkn": "PF-326081", "desc": "VALVULA ANTIRETORNO CHECK VALVE BRIDAS ISO M.CK2WD DN100 - 4\"", "ref": "3710046050C"}, {"lkn": "PF-326082", "desc": "VALVULA ANTIRETORNO CHECK VALVE BRIDAS ISO M.CK2WD DN125 - 5\"", "ref": "3712546050C"}, {"lkn": "PF-326083", "desc": "VALVULA ANTIRETORNO CHECK VALVE BRIDAS ISO M.CK2WD DN150 - 6\"", "ref": "3715046050C"}, {"lkn": "PF-326084", "desc": "MANGUITO ANTIVIBRATORIO BRIDAS ISO M.GF1C DN40 - 1.1/2\"", "ref": "6004046000C"}, {"lkn": "PF-326085", "desc": "MANGUITO ANTIVIBRATORIO BRIDAS ISO M.GF1C DN50 - 2\"", "ref": "6005046000C"}, {"lkn": "PF-326086", "desc": "MANGUITO ANTIVIBRATORIO BRIDAS ISO M.GF1C DN65 - 2.1/2\"", "ref": "6006546000C"}, {"lkn": "PF-326087", "desc": "MANGUITO ANTIVIBRATORIO BRIDAS ISO M.GF1C DN80 - 3\"", "ref": "6008046000C"}, {"lkn": "PF-326088", "desc": "MANGUITO ANTIVIBRATORIO BRIDAS ISO M.GF1C DN100 - 4\"", "ref": "6010046000C"}, {"lkn": "PF-326089", "desc": "MANGUITO ANTIVIBRATORIO BRIDAS ISO M.GF1C DN125 - 5\"", "ref": "6012546000C"}, {"lkn": "PF-326090", "desc": "MANGUITO ANTIVIBRATORIO BRIDAS ISO M.GF1C DN150 - 6\"", "ref": "6015046000C"}, {"lkn": "PF-326091", "desc": "VALV. EQUILIBRADO ESTATICO BRIDAS ISO M.SB2V DN65 - 2.1/2\"", "ref": "3706546060C"}, {"lkn": "PF-326092", "desc": "VALV. EQUILIBRADO ESTATICO BRIDAS ISO M.SB2V DN80 - 3\"", "ref": "3708046060C"}, {"lkn": "PF-326093", "desc": "VALV. EQUILIBRADO ESTATICO BRIDAS ISO M.SB2V DN100 - 4\"", "ref": "3710046060C"}, {"lkn": "PF-326094", "desc": "VALV. EQUILIBRADO ESTATICO BRIDAS ISO M.SB2V DN125 - 5\"", "ref": "3712546060C"}, {"lkn": "PF-326095", "desc": "VALV. EQUILIBRADO ESTATICO BRIDAS ISO M.SB2V DN150 - 6\"", "ref": "3715046060C"}, {"lkn": "PF-326096", "desc": "VALV. EQUILIBRADO ESTATICO BRIDAS ISO M.SB2V DN200 - 8\"", "ref": "3720046060C"}, {"lkn": "PF-326097", "desc": "VALV. EQUILIBRADO DINAMICO M-M 1/2´ 600L/H M.91XL/2", "ref": "3701410170C"}, {"lkn": "PF-326110", "desc": "FLEXO P FXMUP DN40 1.1/2\" Macho x 1.1/2\" Tuerca Loca 50cm", "ref": "new"}, {"lkn": "PF-326111", "desc": "CASCO AISLANTE PARA VALV. PICV M.091IHV 1\"", "ref": "6902010770C"}, {"lkn": "PF-326112", "desc": "CONTADOR ENERGIA ENERGY METER M.EM403 2.500 l/h 1\" BACnet (IP) 24V AC/DC", "ref": "EM4BI254I0C"}, {"lkn": "PF-326113", "desc": "CONTADOR ENERGIA ENERGY METER M.EM603 15.000 l/h DN50 BACnet ( IP ) 24V AC/DC C/SONDAS DE 4 HILOS", "ref": "EM6BIF154PC+0EMK458650C"}, {"lkn": "PF-326120", "desc": "KIT HIDRAULICO PCS M.XT702P 1/2´ 150L/H CON AISLANTE RIGIDO", "ref": "NEW"}, {"lkn": "PF-326121", "desc": "KIT HIDRAULICO PCS M.XT702P 1/2´ 450L/H CON AISLANTE RIGIDO", "ref": "NEW"}, {"lkn": "PF-326122", "desc": "KIT HIDRAULICO PCS M.XT702P 1/2´ 850L/H CON AISLANTE RIGIDO", "ref": "NEW"}, {"lkn": "PF-326123", "desc": "KIT CONTABILIZACION M.KCH01EF - 150L/H", "ref": "NEW-KCH01EF"}, {"lkn": "PF-326124", "desc": "KIT CONTABILIZACION M.KCH06EF - 450L/H", "ref": "NEW-KCH06EF"}, {"lkn": "PF-326125", "desc": "KIT CONTABILIZACION M.KCH08EF - 850L/H", "ref": "6202020110C"}, {"lkn": "PF-326126", "desc": "KIT CONTABILIZACION M.KCH10EF - 1.000L/H", "ref": "NEW-KCH10EF"}, {"lkn": "PF-326127", "desc": "KIT CONTABILIZACION M.KCH15EF - 3/4\" x 1.850L/H", "ref": "NEW-KCH15EF"}, {"lkn": "PF-326128", "desc": "ACTUADOR ROTATIVO M.M63 3P 230V - TODO/NADA 3 puntos", "ref": "NEW"}, {"lkn": "PF-326151", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-L DN32 - 1.1/4\" MANDO PALANCA", "ref": "3703246020C"}, {"lkn": "PF-326152", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-L DN40 - 1.1/2\" MANDO PALANCA", "ref": "3704046020C"}, {"lkn": "PF-326153", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-L DN50 - 2\" MANDO PALANCA", "ref": "3705046020C"}, {"lkn": "PF-326154", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-G DN350 - 14\" VOLANTE REDUCTOR", "ref": "3735046020C"}, {"lkn": "PF-326155", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-G DN400 - 16\" VOLANTE REDUCTOR", "ref": "3740046020C"}, {"lkn": "PF-326156", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-G DN450 - 18\" VOLANTE REDUCTOR", "ref": "3745046020C"}, {"lkn": "PF-326157", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF4SE-G DN500 - 20\" VOLANTE REDUCTOR", "ref": "3750046020C"}, {"lkn": "PF-326673", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF2SEGC DN400 - 16\" VOLANTE REDUCTOR", "ref": "NEW"}, {"lkn": "PF-326674", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF2SEGD DN500 - 20\" VOLANTE REDUCTOR", "ref": "NEW"}, {"lkn": "PF-326676", "desc": "RECAMBIO FILTRO FM028 M.FM 1.1/4’", "ref": "9402945000C"}, {"lkn": "PF-326677", "desc": "ACTUADOR PARA VALV MARIPOSA M.EOT05 230V - TODO/NADA", "ref": "NEW"}, {"lkn": "PF-326678", "desc": "ACTUADOR PARA VALV MARIPOSA M.EOT10 230V - TODO/NADA", "ref": "NEW"}, {"lkn": "PF-326679", "desc": "ACTUADOR PARA VALV MARIPOSA M.EOT20 230V - TODO/NADA (DUPLICADO)", "ref": "NEW"}, {"lkn": "PF-326680", "desc": "ACTUADOR PARA VALV MARIPOSA M.EOT40 230V - TODO/NADA (DUPLICADO)", "ref": "NEW"}, {"lkn": "PF-326681", "desc": "KIT DE CONTABILIZ. ENERGY SAVER EASY GO M.EG18QFI 3/4” 1.850 l/h", "ref": "NEW CODE"}, {"lkn": "PF-326682", "desc": "RACOR 2P M.1007WFC 3/4'-3/4' H-H ESFEROCONICO", "ref": "NEW"}, {"lkn": "PF-326683", "desc": "RACOR 2P M.1007WFP 3/4'-3/4' H-H ESFEROCONICO-ASIENTO PLANO", "ref": "NEW"}, {"lkn": "PF-327747", "desc": "KIT HIDRAULICO PCS M.XT801 3/4´ 1000L/H", "ref": "6202010050C"}, {"lkn": "PF-327750", "desc": "VALVULA MARIPOSA TIPO WAFER M.BF2SEGC DN300 - 12\"  VOLANTE REDUCTOR", "ref": "3730041400C"}, {"lkn": "PF-352206", "desc": "KIT DE MANTENIMIENTO M.091SETP para las PICV de las SERIE 91 Y 93", "ref": "6400000410C"}, {"lkn": "PF-385884", "desc": "CASCO AISLANTE M.I704HV PARA XT704 3/4 y 1/2\" x 850l/h l/h Motor Externo", "ref": "6902010850"}, {"lkn": "PF-625190", "desc": "COLECTOR MODULAR PLAST M.K7522TO 1´X3/4X18X2 c/caudalim.+ valv.", "ref": "6221050040C"}, {"lkn": "PF-625205", "desc": "ACTUADOR ELECTRO-MECANICO 3 PTS M.VA7481 24V sin adaptador", "ref": "6400700180C"}, {"lkn": "PF-PET00001", "desc": "RECAMBIO CJTO MONTURA VALVULA + ASIENTO P/COL. PREM 7035TEM 1\"", "ref": "9301510200C+ 9602511000C"}, {"lkn": "PF-PET00751N", "desc": "DETENTOR RECTO CROMADO 3/4´ 993/751N", "ref": "0602015200C"}, {"lkn": "PF-PET01403", "desc": "PROLONG. ASTA M.054 TIPO 3 1.1/4´ MANIOBRA", "ref": "9602810150C"}, {"lkn": "PF-PET01404", "desc": "PROLONG. ASTA M.054 TIPO 4 MANIOBRA", "ref": "9603810150C"}, {"lkn": "PF-PET01903", "desc": "RACOR TERMINAL 1´ -1/2´-3/8´ M.070M", "ref": "6002510000C"}, {"lkn": "PF-PET01905", "desc": "RACOR TERMINAL 1.1/4´ -1/2´-1/2´ M.070M", "ref": "6003210000C"}, {"lkn": "PF-PET02001", "desc": "RACOR PORTATERM 1´Mx1´x3/8´ M.070TM", "ref": "6002510070C"}, {"lkn": "PF-PET02002", "desc": "RACOR PORTATERM 1.1/4´Mx1.1/4´x3/8´ M.070TM", "ref": "6003210070C"}, {"lkn": "PF-PET02201", "desc": "MANDO P/VALV. COLECTOR PREMONTADO M.0760P BLANCO", "ref": "8203505050C"}, {"lkn": "PF-PET03201", "desc": "RACOR 2P M.1007 3/8'-1/2' CONIC NIQUEL", "ref": "9601015100C"}, {"lkn": "PF-PET03202", "desc": "RACOR 2P M.1007 1/2´-3/4´ CONIC NIQUEL", "ref": "9601515100C"}, {"lkn": "PF-PET04201", "desc": "CABEZA TERMOSTATICA M.107L ´OVAL´ DE LIQUIDO", "ref": "0310700000C"}, {"lkn": "PF-PET04402", "desc": "LLAVE VACIADO 1/2´- 16.2 M.144SC", "ref": "3701510570C"}, {"lkn": "PF-PET04801", "desc": "VALV. RETENCION CLAPETA 1/2´ C/GOMA M.184/GO", "ref": "1601521000C"}, {"lkn": "PF-PET04802", "desc": "VALV. RETENCION CLAPETA 3/4´ C/GOMA M.184/GO", "ref": "1602021000C"}, {"lkn": "PF-PET04803", "desc": "VALV. RETENCION CLAPETA 1´ C/GOMA M.184/GO", "ref": "1602521000C"}, {"lkn": "PF-PET04804", "desc": "VALV. RETENCION CLAPETA 1.1/4´ C/GOMA M.184/GO", "ref": "1603221000C"}, {"lkn": "PF-PET04805", "desc": "VALV. RETENCION CLAPETA 1.1/2´ C/GOMA M.184/GO", "ref": "1604021000C"}, {"lkn": "PF-PET04806", "desc": "VALV. RETENCION CLAPETA 2´ C/GOMA M.184/GO", "ref": "1605021000C"}, {"lkn": "PF-PET04807", "desc": "VALV. RETENCION CLAPETA 2.1/2´ C/GOMA M.184/GO", "ref": "1607021000C"}, {"lkn": "PF-PET04808", "desc": "VALV. RETENCION CLAPETA 3´ C/GOMA M.184/GO", "ref": "1608021000C"}, {"lkn": "PF-PET04809", "desc": "VALV. RETENCION CLAPETA 4´ C/GOMA M.184/GO", "ref": "1610021000C"}, {"lkn": "PF-PET05105", "desc": "VALV. FONDO 1.1/4´ GLORY M.189", "ref": ""}, {"lkn": "PF-PET05302", "desc": "VALV. ESF. C/RACOR LOCO 3/4´H-3/4´M M.209/1 ESCUADRA M.ROJA", "ref": "3702014200C"}, {"lkn": "PF-PET05801", "desc": "GRIFO ESF. C/PALANCA M.296N 3/8´ P/MANGUERA", "ref": "3401015800C"}, {"lkn": "PF-PET05802", "desc": "GRIFO ESF. C/PALANCA M.296N 1/2´ P/MANGUERA", "ref": "3401518010C"}, {"lkn": "PF-PET05803", "desc": "GRIFO ESF. C/PALANCA M.296N 3/4´ P/MANGUERA", "ref": "3402015800C"}, {"lkn": "PF-PET05804", "desc": "GRIFO ESF. C/PALANCA M.296N 1´ P/MANGUERA", "ref": "3402525800C"}, {"lkn": "PF-PET05908C", "desc": "ADAPT. 16X11X16 M.3015 CROMADO NI", "ref": "9601218630C"}, {"lkn": "PF-PET05919A", "desc": "ADAPT. 3/4´X18X16X20 M.3015 AMARILLO CLIMAFLOOR", "ref": "9601610100c"}, {"lkn": "PF-PET05930A", "desc": "ADAPT. 3/4´X18X12X16 M.3015 AMARILLO CLIMAFLOOR", "ref": "9601210060C"}, {"lkn": "PF-PET06101", "desc": "TAPON 3/8´M C/GUARN. M.3522M+O P/COLEC.LINEALES", "ref": "9601910020C"}, {"lkn": "PF-PET06102", "desc": "TAPON 1/2´M C/GUARN. M.3522M+O P/COLEC.LINEALES", "ref": "9602310020C"}, {"lkn": "PF-PET06103", "desc": "TAPON 3/4´M C/GUARN. M.3522M+O P/COLEC.LINEALES", "ref": "9402711010C"}, {"lkn": "PF-PET06104", "desc": "TAPON 1´M C/GUARN. M.3522M+O P/COLEC.LINEALES", "ref": "9403411010C"}, {"lkn": "PF-PET06105", "desc": "TAPON 1.1/4´M C/GUARN. M.3522M+O P/COLEC.LINEALES", "ref": "9404211000C"}, {"lkn": "PF-PET06205", "desc": "TAPON M.3523 3/4´X18 P/COLECTOR PREMONTADO", "ref": "9603010020C"}, {"lkn": "PF-PET06302C", "desc": "ADAPT. 16X12 M.3525 CROMADO -NICHELATO", "ref": "9601215030C"}, {"lkn": "PF-PET06303C", "desc": "ADAPT. 18X18 M.3525 CROMADO -NICHELATO", "ref": "9601818010C"}, {"lkn": "PF-PET06305A", "desc": "ADAPT. 16X16 M.3525 AMARILLO -GIALLO", "ref": "9601610010C"}, {"lkn": "PF-PET06306C", "desc": "ADAPT. 3/8´X12 M.3525 CROMADO -NICHELATO", "ref": ""}, {"lkn": "PF-PET06307A", "desc": "ADAPT. 18X18 M.3525 AMARILLO -GIALLO", "ref": ""}, {"lkn": "PF-PET06308C", "desc": "ADAPT. 3/8´X14 M.3525 CROMADO -NICHELATO", "ref": ""}, {"lkn": "PF-PET06310C", "desc": "ADAPT. 16X15 M.3525 CROMADO -NICHELATO", "ref": "9601515010C"}, {"lkn": "PF-PET06311C", "desc": "ADAPT. 16X16 M.3525 CROMADO -NICHELATO", "ref": "9601615010C"}, {"lkn": "PF-PET07102", "desc": "RACOR M-M 1´X1´ M.4040 P/UNION COLECTOR LINEAL", "ref": "8503510000C"}, {"lkn": "PF-PET07201", "desc": "REDUCTOR DE PRESION 1/2´ M.500 - Tª max 50ºC", "ref": "3501520000C"}, {"lkn": "PF-PET07202", "desc": "REDUCTOR DE PRESION 3/4´ M.500 - Tª max 50ºC", "ref": "3502020000C"}, {"lkn": "PF-PET07203", "desc": "REDUCTOR DE PRESION 1´ M.500 - Tª max 50ºC", "ref": "3502520000C"}, {"lkn": "PF-PET07204", "desc": "REDUCTOR DE PRESION 1.1/4´ M.500 - Tª max 50ºC", "ref": "3503220000C"}, {"lkn": "PF-PET07205", "desc": "REDUCTOR DE PRESION 1.1/2´ M.500 - Tª max 50ºC", "ref": "3504020000C"}, {"lkn": "PF-PET07206", "desc": "REDUCTOR DE PRESION 2´ M.500 - Tª max 50ºC", "ref": "3505020000C"}, {"lkn": "PF-PET07602", "desc": "VALV. ESF. FXF 3/8´ M.51 M.PALANCA", "ref": "3701015050C"}, {"lkn": "PF-PET07611", "desc": "VALV. ESF. FXF 4´ M.51 M.PALANCA", "ref": "3710015050C"}, {"lkn": "PF-PET07701", "desc": "VALV. ESF. MXF 1/4´ M.51/1 M.PALANCA", "ref": "3700715060C"}, {"lkn": "PF-PET07706", "desc": "VALV. ESF. MXF 1.1/4´ M.51/1 M.PALANCA", "ref": "3703215060C"}, {"lkn": "PF-PET07707", "desc": "VALV. ESF. MXF 1.1/2´ M.51/1 M.PALANCA", "ref": "3704015060C"}, {"lkn": "PF-PET07905", "desc": "VALV. ESF. C/RACOR 1´ M.51CE/3 M.PALANCA", "ref": "3702525130C"}, {"lkn": "PF-PET07906", "desc": "VALV. ESF. C/RACOR 1.1/4´ M.51C/3 -  M.51CE/3 M.PALANCA", "ref": "3703225130C"}, {"lkn": "PF-PET08001", "desc": "VALV. ESF. FXF 1/2´ M.51CE M.PALANCA", "ref": "3701515980C"}, {"lkn": "PF-PET08002", "desc": "VALV. ESF. FXF 3/4´ M.51CE M.PALANCA", "ref": "3702015980C"}, {"lkn": "PF-PET08003", "desc": "VALV. ESF. FXF 1´ M.51CE M.PALANCA", "ref": "3702515980C"}, {"lkn": "PF-PET08004", "desc": "VALV. ESF. FXF 1.1/4´ M.51CE M.PALANCA", "ref": "3703215980C"}, {"lkn": "PF-PET08005", "desc": "VALV. ESF. FXF 1.1/2´ M.51CE M.PALANCA", "ref": "3704015980C"}, {"lkn": "PF-PET08006", "desc": "VALV. ESF. FXF 2´ M.51CE M.PALANCA", "ref": "3705015980C"}, {"lkn": "PF-PET08401", "desc": "VALV. ESF. C/FILTRO 1/2´ M.51F", "ref": "3901510000C"}, {"lkn": "PF-PET08402", "desc": "VALV. ESF. C/FILTRO 3/4´ M.51F", "ref": "3902010000C"}, {"lkn": "PF-PET08403", "desc": "VALV. ESF. C/FILTRO 1´ M.51F", "ref": "3902510000C"}, {"lkn": "PF-PET08404", "desc": "VALV. ESF. C/FILTRO 1.1/4´ M.51F", "ref": "3903210150C"}, {"lkn": "PF-PET08405", "desc": "VALV. ESF. C/FILTRO 1.1/2´ M.51F", "ref": "3904010000C"}, {"lkn": "PF-PET08406", "desc": "VALV. ESF. C/FILTRO 2´ M.51FL", "ref": "3905091000C"}, {"lkn": "PF-PET08602", "desc": "VALV. ESF. FXF 3/8´ M.52 M.MARIPOSA", "ref": "3701015100C"}, {"lkn": "PF-PET08604", "desc": "VALV. ESF. FXF 3/4´ M.52 M.MARIPOSA", "ref": "3702015100C"}, {"lkn": "PF-PET08605", "desc": "VALV. ESF. FXF 1´ M.52 M.MARIPOSA", "ref": "3702515100C"}, {"lkn": "PF-PET08703", "desc": "VALV. ESF. MXF 1/2´ M.52/1 M.MARIPOSA", "ref": "3701515110C"}, {"lkn": "PF-PET08704", "desc": "VALV. ESF. MXF 3/4´ M.52/1 M.MARIPOSA", "ref": "3702015110C"}, {"lkn": "PF-PET08705", "desc": "VALV. ESF. MXF 1´ M.52CE/1 M.MARIPOSA", "ref": "3702518080C"}, {"lkn": "PF-PET08706", "desc": "VALV. ESF. MXF 1.1/4´ M.52/1 M.MARIPOSA", "ref": "3703215110C"}, {"lkn": "PF-PET08901", "desc": "VALV. ESF. FXF 1/2´ M.52CE M.MARIPOSA", "ref": "3701515990C"}, {"lkn": "PF-PET08902", "desc": "VALV. ESF. FXF 3/4´ M.52CE M.MARIPOSA", "ref": "3702015990C"}, {"lkn": "PF-PET08903", "desc": "VALV. ESF. FXF 1´ M.52CE M.MARIPOSA", "ref": "3702515990C"}, {"lkn": "PF-PET09001", "desc": "VALV. ESF. MXF 1/2´ M.52CE/1 M.MARIPOSA", "ref": "3701518080C"}, {"lkn": "PF-PET09002", "desc": "VALV. ESF. MXF 3/4´ M.52CE/1 M.MARIPOSA", "ref": "3702018080C"}, {"lkn": "PF-PET09003", "desc": "VALV. ESF. MXF 1´ M.52/1 M.MARIPOSA", "ref": "3702515110C"}, {"lkn": "PF-PET10901", "desc": "PURG. AUTOM. 3/8´ C/VALV. RET. M.696/97", "ref": "6001010240C"}, {"lkn": "PF-PET10902", "desc": "PURG. AUTOM. 1/2´ C/VALV. RET. M.696/97", "ref": "6001510240C"}, {"lkn": "PF-PET11001", "desc": "PURG. AUTOMATICO 3/8´ M.696TM", "ref": "6001010220C"}, {"lkn": "PF-PET11401A", "desc": "RACOR 3P CURVO 3/8´ M.700 AMARILLO -GIALLO", "ref": "6001010040C"}, {"lkn": "PF-PET11402A", "desc": "RACOR 3P CURVO 1/2´ M.700 AMARILLO -GIALLO", "ref": "6001510040C"}, {"lkn": "PF-PET11403A", "desc": "RACOR 3P CURVO 3/4´ M.700 AMARILLO -GIALLO", "ref": "6002010040C"}, {"lkn": "PF-PET11404A", "desc": "RACOR 3P CURVO 1´ M.700 AMARILLO -GIALLO", "ref": "6002510040C"}, {"lkn": "PF-PET11405A", "desc": "RACOR 3P CURVO 1.1/4´ M.700 AMARILLO -GIALLO", "ref": "6003210040C"}, {"lkn": "PF-PET11501", "desc": "COLECTOR LINEAL 1´X3/8´/2 M.7000PM", "ref": "7609711100C"}, {"lkn": "PF-PET11502", "desc": "COLECTOR LINEAL 1´X3/8´/3 M.7000PM", "ref": "7613211100C"}, {"lkn": "PF-PET11514", "desc": "COLECTOR LINEAL 1´X1/2´/6 M.7000PM", "ref": "7631211100C"}, {"lkn": "PF-PET11521", "desc": "COLECTOR LINEAL 1.1/4´X1/2´/6 M.7000PM", "ref": "7631711100C"}, {"lkn": "PF-PET11701A", "desc": "RACOR 3P RECTO 3/8´ M.701 AMARILLO -GIALLO", "ref": "6001010050C"}, {"lkn": "PF-PET11702A", "desc": "RACOR 3P RECTO 1/2´ M.701 AMARILLO -GIALLO", "ref": "6001510050C"}, {"lkn": "PF-PET11702C", "desc": "RACOR 3P RECTO 1/2´ M.701 CROMADO - NICHELATO", "ref": "6001515050C"}, {"lkn": "PF-PET11703A", "desc": "RACOR 3P RECTO 3/4´ M.701 AMARILLO -GIALLO", "ref": "6002010050C"}, {"lkn": "PF-PET11704A", "desc": "RACOR 3P RECTO 1´ M.701 AMARILLO -GIALLO", "ref": "6002510050C"}, {"lkn": "PF-PET11705A", "desc": "RACOR 3P RECTO 1.1/4´ M.701 AMARILLO -GIALLO", "ref": "6003210050C"}, {"lkn": "PF-PET12009", "desc": "COLECTOR 11/4X3/4X18X03 PREM. M.7035TDM", "ref": "6216711220C"}, {"lkn": "PF-PET12014", "desc": "COLECTOR 11/4X3/4X18X08 PREM. M.7035TDM", "ref": "6241711220C"}, {"lkn": "PF-PET12017", "desc": "COLECTOR 11/4X3/4X18X11 PREM. M.7035TDM", "ref": "6260411220C"}, {"lkn": "PF-PET12018", "desc": "COLECTOR 11/4X3/4X18X12 PREM. M.7035TDM", "ref": "6265411220C"}, {"lkn": "PF-PET12019", "desc": "COLECTOR 1X3/4X18X09 PREM. M.7035TDM", "ref": "6248811220C"}, {"lkn": "PF-PET12102", "desc": "SOPORTE COLECTOR M.7080/1 1.1/4´", "ref": "8203245020C"}, {"lkn": "PF-PET12501", "desc": "VALV. RAD. ESCUADRA 3/8´X14 M.745MB", "ref": ""}, {"lkn": "PF-PET12502", "desc": "VALV. RAD. ESCUADRA 1/2´X16 M.745MB", "ref": ""}, {"lkn": "PF-PET12802", "desc": "DETENTOR RAD. RECTO M.751N 1/2´", "ref": "0601515200C"}, {"lkn": "PF-PET12902", "desc": "DETENTOR RAD. ESCUADRA M.755N 1/2´-16", "ref": "0801615200C"}, {"lkn": "PF-PET13101", "desc": "MANDO ELECTRO-TERM M.A542O2 NC 230V ON/OFF", "ref": "A542O20001C"}, {"lkn": "PF-PET13104", "desc": "MANDO ELECTRO-TERM M.A544O4 NC 24V ON/OFF Micro Aux 4h", "ref": "A544O40001C"}, {"lkn": "PF-PET13602", "desc": "VALV. RAD. ESC. TERM. 1/2-16 M.770P", "ref": "0301615500C"}, {"lkn": "PF-PET13604", "desc": "VALV. RAD. ESC. TERM. 3/8-16 M.770P", "ref": ""}, {"lkn": "PF-PET16201", "desc": "CAJA 400X450X110 COLECTOR M.C70/1", "ref": "6740045010C"}, {"lkn": "PF-PET16202", "desc": "CAJA 600X450X110 COLECTOR M.C70/2", "ref": "6760045010C"}, {"lkn": "PF-PET16203", "desc": "CAJA 800X450X110 COLECTOR M.C70/3", "ref": "6780045010C"}, {"lkn": "PF-PET16204", "desc": "CAJA 1000X450X110 COLECTOR M.C70/4", "ref": "6710045010C"}, {"lkn": "PF-PET16603", "desc": "VALV. ESF. FXF 1/2´ M.G51 C/M.PALANCA", "ref": "3801515030C"}, {"lkn": "PF-PET16804", "desc": "VALV. ESF. MXM 3/4´ M.G51/2 C/M.PALANCA", "ref": ""}, {"lkn": "PF-PET16903", "desc": "VALV. ESF. FXF 1/2´ M.G52 C/M.MARIPOSA", "ref": "3801515060C"}, {"lkn": "PF-PET17103", "desc": "VALV. ESF. MXM 1/2´ M.G52/2 C/M.MARIPOSA", "ref": ""}, {"lkn": "PF-PET18001", "desc": "TERMOMETRO 0-60ºC 3/8´ M.T40/60", "ref": "6708000000C"}, {"lkn": "PF-PET18002", "desc": "TERMOMETRO 0-80ºC 3/8´ M.T40", "ref": "6708000010C"}, {"lkn": "PF-PET18405", "desc": "VALV. ESF. FXF 1´ M.54 C/ASTA PROLONGADA", "ref": ""}, {"lkn": "PF-PET18406", "desc": "VALV. ESF. FXF 1.1/4´ M.54 C/ASTA PROLONGADA", "ref": "55 1.1/4´"}, {"lkn": "PF-PET18503", "desc": "VALV. ESF. 3/4´X3/4´ M.52CE/3 C/RACOR M.MARIPOSA", "ref": "3702025120C"}, {"lkn": "PF-PET18504", "desc": "VALV. ESF. 3/4´X1´ M.52C/3 C/RACOR MARIPOSA", "ref": ""}, {"lkn": "PF-PET18507", "desc": "VALV. ESF. 1.1/4´X1.1/4´ M.52CE/3 C/RACOR M.MARIPOSA", "ref": "3703225120C"}, {"lkn": "PF-PET18601", "desc": "DETENTOR RAD. ESCUADRA 3/8´-14 M.755M CROM-NICHEL", "ref": ""}, {"lkn": "PF-PET18705", "desc": "VALV. ESF. 1´X1´ M.52CE/3 C/RACOR M.MARIPOSA", "ref": "3702525120C"}, {"lkn": "PF-PET18802", "desc": "VALV. ESF. C/RACOR LOCO 3/4´H-3/4´M M.52METN1 RECTA", "ref": "3702228050C"}, {"lkn": "PF-PET18924", "desc": "ADAPT. 3/4x15.5x20 M.3015SCR CROMADO P/METAL PLAS", "ref": "9601695060C"}, {"lkn": "PF-PET19201", "desc": "COLECTOR MODULAR PLAST M.K7500P 1´X3/4X18X2", "ref": "6221020050C"}, {"lkn": "PF-PET19301", "desc": "CONJUNTO IMPULSION+RETORNO M.7500TD c/detentor", "ref": "6236020020C"}, {"lkn": "PF-PET19304", "desc": "TAPON CIEGO M.7500C P/COL MODULAR M.K7500P", "ref": "8503205000C"}, {"lkn": "PF-PET19305", "desc": "SOPORTE M.7500Z P/COL MODULAR", "ref": "8203245050C"}, {"lkn": "PF-PET19702", "desc": "VALV. ESF. 1.1/4´ M.52T/3BM C/RACOR MARIPOSA AZUL C/T.Termometro", "ref": "3703211600C"}, {"lkn": "PF-PET19801", "desc": "VALV. ESF. 1´ M.52FT/3M C/RACOR MARIPOSA C/T.Termom.+ Filtro", "ref": "3902511100C"}, {"lkn": "PF-PET19901", "desc": "RACOR PORTATERM 18X3/4´ M.35T P/COL 7035TDM", "ref": "6001810000C"}, {"lkn": "PF-PET20003", "desc": "VALV. ESF. C/RACOR LOCO 3/4´H-3/4´H M.52METN RECTA", "ref": "3702225020C"}, {"lkn": "PF-PET20004", "desc": "VALV. ESF. C/RACOR LOCO 1´H-3/4´H M.52METN RECTA", "ref": "3702518610C"}, {"lkn": "PF-PET20402", "desc": "VALV. RAD. ESCUADRA 1/2´ M.940", "ref": "0501518600C"}, {"lkn": "PF-PET20502", "desc": "VALV. RAD. RECTA 1/2´ M.941", "ref": "0501518630C"}, {"lkn": "PF-REH02915", "desc": "VALV. ESF. MINI MH 3/8´ MAN. M.377", "ref": "2901015340C"}, {"lkn": "PF-REH10012", "desc": "MANDO MARIPOSA M.052ROS 3/4\" 65mm", "ref": "8206505060C"}, {"lkn": "PF-REH10014", "desc": "MANDO MARIPOSA M.052ROS 1” - 1”1/4 75mm", "ref": "8207505060C"}];
+
+
+function searchPettDB(code, desc) {
+  if (!code && !desc) return null;
+  // 1. Cerca exacta per Ref.Proveedor
+  if (code) {
+    const exact = PETT_DB.find(a => a.ref.toUpperCase() === code.toUpperCase());
+    if (exact) return { ...exact, match: 'ref' };
+  }
+  // 2. Cerca exacta per codi LKN
+  if (code) {
+    const lkn = PETT_DB.find(a => a.lkn.toUpperCase() === code.toUpperCase());
+    if (lkn) return { ...lkn, match: 'lkn' };
+  }
+  // 3. Cerca parcial per codi en descripció
+  if (code) {
+    const partial = PETT_DB.find(a => 
+      a.ref.toUpperCase().includes(code.toUpperCase()) ||
+      a.lkn.toUpperCase().includes(code.toUpperCase())
+    );
+    if (partial) return { ...partial, match: 'partial' };
+  }
+  // 4. Cerca per paraules clau de la descripció (mínim 2 paraules)
+  if (desc) {
+    const words = desc.toUpperCase().split(/\s+/).filter(w => w.length > 3);
+    if (words.length >= 2) {
+      const byDesc = PETT_DB.find(a => 
+        words.filter(w => a.desc.toUpperCase().includes(w)).length >= 2
+      );
+      if (byDesc) return { ...byDesc, match: 'desc' };
+    }
+  }
+  return null;
+}
+
+// ─── STATE ───────────────────────────────────────────────
+// API key ara viu al Worker — no cal al client
+let scenario = 1;
+let lines = [];
+let orderData = {};
+let pettMode = null;
+let selectedAddr = 'pdf';
+let loadInterval = null;
+
+const JCI = ['johnson controls españa','johnson controls portugal','jci españa','jci portugal'];
+const PETT5 = ['51l','52cet','bf2se'];
+const PETT6 = ['bf4se'];
+
+// ─── INIT ─────────────────────────────────────────────────
+window.onload = async () => {
+  selectScenario(1);
+  await kvSync.load();
+};
+
+// Funcions API key eliminades — la clau ara viu al Worker
+
+// ─── SCENARIO ────────────────────────────────────────────
+function selectScenario(n) {
+  scenario = n;
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById('sc-btn-' + i).classList.toggle('active', n === i);
+  }
+  document.getElementById('coef-box').classList.toggle('visible', n === 4);
+  document.getElementById('excel-box').classList.toggle('visible', n >= 1 && n <= 3);
+}
+
+function updateCoefPreview() {
+  const v = parseFloat(document.getElementById('coef-val').value) || 0;
+  document.getElementById('coef-preview').textContent = `= ${(v*100).toFixed(1)}% del preu de venda`;
+}
+
+// ─── FILE HANDLING ────────────────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type === 'application/pdf') handleFile(f);
+}
+
+function handleFile(file) {
+  if (!file) return;
+  // API key ja no cal comprovar — viu al Worker
+  startProgress('Llegint el PDF...');
+  const reader = new FileReader();
+  reader.onload = e => { extractPDF(e.target.result.split(',')[1], file.name); };
+  reader.readAsDataURL(file);
+}
+
+function startProgress(msg) {
+  document.getElementById('progress-wrap').classList.add('visible');
+  document.getElementById('progress-msg').textContent = msg;
+  let w = 5;
+  clearInterval(loadInterval);
+  loadInterval = setInterval(() => {
+    w = Math.min(w + Math.random() * 12, 85);
+    document.getElementById('progress-fill').style.width = w + '%';
+  }, 350);
+}
+
+function stopProgress() {
+  clearInterval(loadInterval);
+  document.getElementById('progress-fill').style.width = '100%';
+  setTimeout(() => {
+    document.getElementById('progress-wrap').classList.remove('visible');
+    document.getElementById('progress-fill').style.width = '0%';
+  }, 500);
+}
+
+// ─── API CALL ─────────────────────────────────────────────
+async function extractPDF(b64, filename) {
+  const sys = `Ets un assistent d'extracció de dades de comandes de venda per a una empresa HVAC (LKN Sistemes).
+Extreu les dades de la comanda i retorna ÚNICAMENT un objecte JSON vàlid, sense cap text addicional, sense markdown, sense backticks.
+Format exacte:
+{
+  "client_name": "nom complet del client tal com apareix al document",
+  "order_ref": "número o referència de la comanda del client (busca: Pedido nº, Order, Comanda, CM/XXXXX, etc.)",
+  "budget_ref": "número de pressupost LKN si apareix (busca: oferta nº, pressupost, ref LKN, Nº Presupuesto Proveedor)",
+  "delivery_address": "adreça d'entrega completa si apareix explícitament al document",
+  "contact_person": "persona de contacte si apareix",
+  "lines": [
+    {
+      "code": "codi LKN de l'article seguint aquesta prioritat: 1) valor a Supplier Item Code o Código de material del proveedor, 2) valor després de s/ref:, ref:, referencia:, 3) codi alfanumèric de l'article. Mai usar el codi intern del client com a codi LKN.",
+      "client_code": "codi intern del client si apareix (el codi propi del client, diferent del s/ref)",
+      "description": "descripció completa de l'article",
+      "unit": "unitat de mesura si apareix (ut, m, kg, caixa, pack, joc, conjunt). Si no apareix, usar 'ut'",
+      "quantity": número,
+      "unit_price": número,
+      "discount": número (0 si no n'hi ha)
+    }
+  ]
+}
+IMPORTANT: Inclou NOMÉS línies d'article real amb preu > 0 i quantitat > 0. Ignora notes, observacions, condicions mediambientals i línies amb import 0. Per al camp code usa SEMPRE el codi després de s/ref: quan existeixi.`;
+
+  const maxRetries = 2;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 1) {
+        document.getElementById('progress-msg').textContent = `Reintentant (intent ${attempt}/${maxRetries})...`;
+        await new Promise(r => setTimeout(r, 1500 * attempt));
+      }
+
+      const resp = await fetch('https://lkn-proxy.ffontsere.workers.dev/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 4096,
+          system: sys,
+          messages: [{ role: 'user', content: [
+            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
+            { type: 'text', text: 'Extreu les dades de la comanda en format JSON.' }
+          ]}]
+        })
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        if (err.error && err.error.type === 'authentication_error') {
+          stopProgress();
+          alert('Error d\'autenticació API. Comprova la configuració del Worker.');
+          return;
+        }
+        lastError = err.error?.message || `HTTP ${resp.status}`;
+        if (attempt === maxRetries) throw new Error(lastError);
+        continue;
+      }
+
+      const data = await resp.json();
+      stopProgress();
+      const text = data.content.map(i => i.text || '').join('');
+      const clean = text.replace(/```json[\s\S]*?```|```[\s\S]*?```/g, t => t.replace(/```json|```/g, '')).trim();
+
+      let parsed;
+      try {
+        parsed = JSON.parse(clean);
+      } catch(parseErr) {
+        // Log raw response for diagnosis
+        console.error('Resposta crua de l\'API:', text);
+        lastError = 'JSON invàlid. Resposta crua:\n' + text.substring(0, 500);
+        if (attempt === maxRetries) {
+          stopProgress();
+          showExtractionError(lastError);
+          return;
+        }
+        continue;
+      }
+
+      // Store PDF blob for preview
+      window._pdfBlob = b64ToBlob(b64, 'application/pdf');
+      orderData = { ...parsed, scenario, coef: parseFloat(document.getElementById('coef-val').value) || 0.89, filename };
+      populateValidation();
+      return;
+    } catch(err) {
+      lastError = err.message;
+      if (attempt === maxRetries) {
+        stopProgress();
+        showExtractionError(lastError);
+        return;
+      }
+    }
+  }
+}
+
+function b64ToBlob(b64, type) {
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type });
+}
+
+function showExtractionError(detail) {
+  const msg = 'Error en l\'extracció. Detalls:\n\n' + detail;
+  console.error(msg);
+  alert(msg);
+}
+
+// ─── POPULATE VALIDATION ──────────────────────────────────
+function populateValidation() {
+  document.getElementById('v-name').value = orderData.client_name || '';
+  // Auto-fill client A3 code from profile
+  const profile = getClientProfile(orderData.client_name);
+  document.getElementById('v-code').value = profile ? profile.a3Code : '';
+  if (profile && profile.a3Code) {
+    document.getElementById('v-code').style.background = 'var(--info-bg)';
+    document.getElementById('v-code').title = 'Omplert automàticament des del perfil del client';
+  } else {
+    document.getElementById('v-code').style.background = '';
+    document.getElementById('v-code').title = '';
+  }
+  // Auto-fill coef from profile for scenario 4
+  if (scenario === 4 && profile && profile.coef) {
+    document.getElementById('coef-val').value = profile.coef;
+    updateCoefPreview();
+    orderData.coef = profile.coef;
+  }
+  document.getElementById('v-ref').value = orderData.order_ref || '';
+  document.getElementById('v-budget').value = orderData.budget_ref || '';
+  document.getElementById('v-addr-detected').textContent = orderData.delivery_address || 'No detectada al PDF';
+
+  const badge = document.getElementById('sc-badge');
+  const scNames = { 1:'CC — Terrendis', 2:'CC — Multi prov. A', 3:'CC — Multi prov. B', 4:'Agent comercial', 5:'Johnson Controls' };
+  badge.textContent = 'Escenari ' + scenario + ' — ' + (scNames[scenario] || '');
+  badge.className = 'badge ' + (scenario === 4 ? 'badge-warn' : 'badge-info');
+
+  const sc2note = document.getElementById('sc2-agent-note');
+  sc2note.style.display = scenario === 4 ? 'block' : 'none';
+  document.getElementById('coef-display').textContent = orderData.coef;
+
+  // Escenari 3: JCI — ocultar bloc Pettinaroli (tot automàtic)
+  const isPett = scenario !== 5 && (orderData.client_name || '').toUpperCase().includes('PETTINAROLI');
+  document.getElementById('pett-card').style.display = isPett ? 'block' : 'none';
+  if (isPett) checkPettAutoDiscount();
+
+  lines = (orderData.lines || [])
+    .filter(l => l.quantity > 0 && l.unit_price > 0)
+    .map((l, i) => {
+      // Try to resolve code from mapping table
+      const mapped = resolveCodeFromMap(orderData.client_name, l.client_code || l.code);
+      if (mapped && !l._pett_resolved) {
+        l._mapped = true;
+        l._original_code = l.code;
+        l.code = mapped;
+      }
+      return { ...l, id: i };
+    });
+
+  // Ports automàtics per Escenari 5 (JCI)
+  if (scenario === 5) {
+    const hasPortes = lines.some(l => (l.code||'').includes('PF-SER00009'));
+    if (!hasPortes) {
+      lines.push({ code: 'PF-SER00009', description: 'PORTES Paqueteria Zona C', quantity: 1, unit_price: 15.00, discount: 0, _ports: true });
+    }
+  }
+  renderLines();
+  renderSummary();
+  selectedAddr = 'pdf';
+  document.getElementById('addr-pdf').classList.add('sel');
+  document.getElementById('addr-new').classList.remove('sel');
+  showStep('step-validate');
+
+  // Show PDF preview button
+  if (window._pdfBlob) {
+    document.getElementById('pdf-preview-btn').style.display = '';
+  }
+
+  // Duplicate order warning
+  if (isDuplicateOrder(orderData.order_ref, orderData.client_name)) {
+    const notice = document.createElement('div');
+    notice.className = 'notice warn';
+    notice.textContent = '⚠ Atenció: Ja existeix una comanda amb la mateixa referència i client a l\'historial. Podria ser un duplicat.';
+    document.getElementById('step-validate').insertBefore(notice, document.getElementById('step-validate').children[1]);
+  }
+}
+
+function checkPettAutoDiscount() {
+  const cn = (orderData.client_name || '').toLowerCase();
+  const isJCI = JCI.some(j => cn.includes(j));
+  if (!isJCI) { document.getElementById('pett-auto-msg').textContent = ''; return; }
+  const linesArr = orderData.lines || [];
+  const has5 = linesArr.some(l => PETT5.some(g => (l.code+l.description).toUpperCase().includes(g.toUpperCase())));
+  const has6 = linesArr.some(l => PETT6.some(g => (l.code+l.description).toUpperCase().includes(g.toUpperCase())));
+  let msg = 'Client JCI detectat. ';
+  if (has5 && has6) msg += 'Gamma mixta — línies 51L/52CET/BF2SE: 5%, BF4SE: 6%.';
+  else if (has5) msg += 'Gamma 51L/52CET/BF2SE → descompte automàtic 5%.';
+  else if (has6) msg += 'Gamma BF4SE → descompte automàtic 6%.';
+  else msg += 'Selecciona l\'escenari manualment.';
+  document.getElementById('pett-auto-msg').textContent = msg;
+}
+
+// ─── PETT MODE ────────────────────────────────────────────
+function setPettMode(mode) {
+  pettMode = mode;
+  document.getElementById('pett-net-row').style.display = mode === 'net' ? 'flex' : 'none';
+  document.getElementById('pett-dto-row').style.display = mode === 'dto' ? 'flex' : 'none';
+  renderLines(); renderSummary();
+}
+
+// ─── LINES ────────────────────────────────────────────────
+function renderLines() {
+  const tbody = document.getElementById('lines-tbody');
+  tbody.innerHTML = '';
+  const isPett = (orderData.client_name||'').toUpperCase().includes('PETTINAROLI');
+  lines.forEach((l, i) => {
+    const bp = getBuyPrice(l);
+    const disc = getDiscount(l);
+    // Cerca a la DB Pettinaroli si escau
+    let pettMatch = null;
+    let codeStyle = 'min-width:90px;';
+    let codeTitle = l.client_code ? `Codi client: ${esc(l.client_code||'')}` : '';
+    if (l._mapped) {
+      codeStyle = 'min-width:90px;background:var(--info-bg);border-color:var(--info-border);color:var(--info);';
+      codeTitle = `Resolt automàticament des de la taula de correspondències (codi client: ${esc(l._original_code||l.client_code||'')})`;
+    }
+    if (isPett) {
+      pettMatch = searchPettDB(l.code, l.description);
+      if (pettMatch) {
+        // Actualitzar el codi LKN si no estava establert
+        if (!l._pett_resolved) { lines[i].code = pettMatch.lkn; lines[i]._pett_resolved = true; }
+        codeStyle = 'min-width:90px;background:var(--success-bg);border-color:var(--success-border);color:var(--success);';
+        codeTitle = `Trobat: ${pettMatch.lkn} (${pettMatch.match === 'ref' ? 'per ref. proveïdor' : pettMatch.match === 'desc' ? 'per descripció' : 'per codi LKN'})`;
+      } else {
+        codeStyle = 'min-width:90px;background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn);';
+        codeTitle = 'Codi no trobat a la base de dades Pettinaroli — introdueix manualment';
+      }
+    }
+    // Price validation
+    let priceStyle = 'width:80px;';
+    let priceTitle = '';
+    if (l.unit_price > 0 && l.unit_price < 0.10) {
+      priceStyle += 'background:var(--danger-bg);border-color:var(--danger);color:var(--danger);';
+      priceTitle = '⚠ Preu molt baix — possible error d\'extracció';
+    } else if (l.unit_price > 10000) {
+      priceStyle += 'background:var(--warn-bg);border-color:var(--warn-border);color:var(--warn);';
+      priceTitle = '⚠ Preu molt alt — comprova el decimal';
+    }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="color:var(--text3);font-size:11px;">${i+1}</td>
+      <td><input value="${esc((isPett && pettMatch ? pettMatch.lkn : l.code)||'')}" oninput="lines[${i}].code=this.value;lines[${i}]._pett_resolved=true;" style="${codeStyle}" title="${codeTitle}"></td>
+      <td><input value="${esc(l.description||'')}" oninput="lines[${i}].description=this.value" style="min-width:160px;"></td>
+      <td><input value="${esc(l.unit||'ut')}" oninput="lines[${i}].unit=this.value" style="width:45px;font-size:11px;text-align:center;"></td>
+      <td><input type="number" value="${l.quantity||0}" min="0" step="1" oninput="lines[${i}].quantity=parseFloat(this.value)||0;renderSummary()" style="width:65px;"></td>
+      <td><input type="text" inputmode="decimal" value="${(l.unit_price||0).toFixed(2)}" oninput="lines[${i}].unit_price=parseFloat(this.value.replace(',','.'))||0;updateBuyPrice(${i})" style="${priceStyle}" title="${priceTitle}"></td>
+      <td class="buy-price">${bp}</td>
+      <td class="disc-val">${disc}</td>
+      <td><button class="btn-danger-ghost" onclick="deleteLine(${i})">×</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function getJCIDiscount(code, desc) {
+  const s = ((code||'') + ' ' + (desc||'')).toUpperCase();
+  if (PETT6.some(g => s.includes(g.toUpperCase()))) return 6;
+  if (PETT5.some(g => s.includes(g.toUpperCase()))) return 5;
+  return 0;
+}
+
+function getBuyPrice(l) {
+  if (scenario === 4) return fmt(l.unit_price * orderData.coef) + ' €';
+  if (scenario === 5) {
+    if (l._ports) return '15,00 €';
+    const d = getJCIDiscount(l.code, l.description);
+    if (d > 0) return fmt(l.unit_price * (1 - d/100)) + ' € (-' + d + '%)';
+    return fmt(l.unit_price) + ' €';
+  }
+  if (pettMode === 'net') {
+    const m = parseFloat(document.getElementById('pett-mult').value) || 0.89;
+    return fmt(l.unit_price * m) + ' €';
+  }
+  if (pettMode === 'dto') {
+    const d = parseInt(document.getElementById('pett-dto-sel').value) || 5;
+    return fmt(l.unit_price * (1 - d/100)) + ' €';
+  }
+  return 'Automàtic A3';
+}
+
+function getDiscount(l) {
+  if (scenario === 4) return '—';
+  if (scenario === 5) {
+    if (l._ports) return '—';
+    const d = getJCIDiscount(l.code, l.description);
+    return d > 0 ? d + '%' : '0%';
+  }
+  if (pettMode === 'dto') return document.getElementById('pett-dto-sel').value + '%';
+  if (l.discount > 0) return l.discount + '%';
+  return '0%';
+}
+
+function updateBuyPrice(i) {
+  const l = lines[i];
+  const tbody = document.getElementById("lines-tbody");
+  const row = tbody.rows[i];
+  if (!row) return;
+  row.cells[5].textContent = getBuyPrice(l);
+  row.cells[5].className = "buy-price";
+  renderSummary();
+}
+
+function deleteLine(i) { lines.splice(i, 1); renderLines(); renderSummary(); }
+
+function addLine() {
+  lines.push({ code:'', description:'', quantity:1, unit_price:0, discount:0, id:Date.now() });
+  renderLines(); renderSummary();
+}
+
+// ─── SUMMARY ─────────────────────────────────────────────
+function renderSummary() {
+  const total = lines.reduce((s, l) => s + l.quantity * l.unit_price, 0);
+  document.getElementById('summary-content').innerHTML = `
+    <div class="summary-row"><span style="color:var(--text2);">Línies d'article</span><span>${lines.length}</span></div>
+    <div class="summary-row"><span style="color:var(--text2);">Total venda (sense IVA)</span><span>${fmt(total)} €</span></div>
+    <div class="summary-row"><span style="color:var(--text2);">Adreça entrega</span><span>${selectedAddr === 'new' ? '⚠ Crear nova a A3' : 'Del PDF'}</span></div>
+    <div class="summary-row"><span>Proveïdor compra</span><span>${getSupplier()}</span></div>
+  `;
+}
+
+function getSupplier() {
+  if (scenario === 5) return 'Pettinaroli (2262)';
+  const cn = (orderData.client_name || '').toUpperCase();
+  if (cn.includes('PETTINAROLI')) return 'Pettinaroli (2262)';
+  return 'Assignat per article a A3';
+}
+
+// ─── ADDR ─────────────────────────────────────────────────
+function selectAddr(type, el) {
+  selectedAddr = type;
+  document.querySelectorAll('.addr-chip').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  renderSummary();
+}
+
+// ─── APPROVE ──────────────────────────────────────────────
+function approveOrder() {
+  const clientCode = document.getElementById('v-code').value.trim();
+  if (!clientCode) { alert('Introdueix el codi de client A3 abans d\'aprovar.'); document.getElementById('v-code').focus(); return; }
+  if (lines.length === 0) { alert('La comanda no té línies.'); return; }
+
+  const total = lines.reduce((s,l) => s + l.quantity * l.unit_price, 0);
+  document.getElementById('done-card').innerHTML = `
+    <div class="summary-row"><span style="color:var(--text2);">Client</span><span>${document.getElementById('v-name').value}</span></div>
+    <div class="summary-row"><span style="color:var(--text2);">Codi A3</span><span>${clientCode}</span></div>
+    <div class="summary-row"><span style="color:var(--text2);">Referència</span><span>${document.getElementById('v-ref').value}</span></div>
+    <div class="summary-row"><span style="color:var(--text2);">Pressupost LKN</span><span>${document.getElementById('v-budget').value || '—'}</span></div>
+    <div class="summary-row"><span style="color:var(--text2);">Línies</span><span>${lines.length} articles</span></div>
+    <div class="summary-row"><span style="color:var(--text2);">Total venda</span><span>${fmt(total)} €</span></div>
+    <div class="summary-row"><span style="color:var(--text2);">Adreça</span><span>${selectedAddr === 'new' ? 'Nova — crear a A3' : document.getElementById('v-addr-detected').textContent}</span></div>
+    <div class="summary-row"><span style="color:var(--text2);">Escenari</span><span>${{1:'Terrendis',2:'Multi prov. A',3:'Multi prov. B',4:'Agent',5:'JCI'}[scenario] || scenario}</span></div>
+    <div style="margin-top:10px;padding:8px 10px;background:var(--success-bg);border:1px solid var(--success-border);border-radius:var(--radius);font-size:12px;color:var(--success);">
+      Comanda validada. Exporta el CSV de venda i/o compra per introduir a A3.
+    </div>
+  `;
+  // Save client profile (A3 code + coef)
+  const clientName = document.getElementById('v-name').value;
+  saveClientProfile(clientName, clientCode, scenario === 4 ? orderData.coef : null);
+
+  // Save to history
+  addToHistory({
+    date: new Date().toLocaleString('ca-ES'),
+    client: document.getElementById('v-name').value,
+    clientCode: clientCode,
+    ref: document.getElementById('v-ref').value,
+    budget: document.getElementById('v-budget').value,
+    lineCount: lines.length,
+    total: fmt(total),
+    scenario: scenario,
+    filename: orderData.filename || ''
+  });
+
+  // Check for new code mappings to save
+  const newMappings = [];
+  lines.forEach(l => {
+    const cc = l.client_code || l._original_code;
+    if (cc && l.code && cc !== l.code && !l._mapped) {
+      // User manually set this code — offer to save
+      const existing = resolveCodeFromMap(clientName, cc);
+      if (!existing || existing !== l.code) {
+        newMappings.push({ clientCode: cc, lknCode: l.code });
+      }
+    }
+  });
+
+  const prompt = document.getElementById('save-map-prompt');
+  if (newMappings.length > 0) {
+    let html = `<div class="save-map-bar" style="flex-direction:column;align-items:stretch;gap:6px;">
+      <div style="font-weight:500;">💡 ${newMappings.length} correspondència/es nova/es detectada/es</div>
+      <div style="font-size:11px;color:var(--text2);">Desar-les perquè en properes comandes de "${esc(clientName)}" els codis LKN s'omplin automàticament?</div>
+      <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:4px;">
+        <button class="btn btn-sm" onclick="this.parentElement.parentElement.parentElement.style.display='none'">No, gràcies</button>
+        <button class="btn btn-sm btn-success" onclick="saveNewMappings()">✓ Desar correspondències</button>
+      </div>
+    </div>`;
+    prompt.innerHTML = html;
+    prompt.style.display = 'block';
+    // Store temporarily for saving
+    window._pendingMappings = newMappings;
+    window._pendingClient = clientName;
+  } else {
+    prompt.style.display = 'none';
+  }
+
+  showStep('step-done');
+}
+
+function saveNewMappings() {
+  if (!window._pendingMappings) return;
+  window._pendingMappings.forEach(m => {
+    addToCodeMap(window._pendingClient, m.clientCode, m.lknCode);
+  });
+  document.getElementById('save-map-prompt').innerHTML = `<div class="save-map-bar" style="background:var(--success-bg);border-color:var(--success-border);color:var(--success);">
+    ✓ ${window._pendingMappings.length} correspondència/es desada/es correctament.
+  </div>`;
+  window._pendingMappings = null;
+}
+
+// ─── UTILS ────────────────────────────────────────────────
+function showStep(id) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function togglePdfPreview() {
+  const wrap = document.getElementById('pdf-preview-wrap');
+  const btn = document.getElementById('pdf-preview-btn');
+  if (wrap.style.display === 'none') {
+    if (window._pdfBlob) {
+      const url = URL.createObjectURL(window._pdfBlob);
+      document.getElementById('pdf-preview-frame').src = url;
+    }
+    wrap.style.display = 'block';
+    btn.textContent = '✕ Tancar PDF';
+  } else {
+    wrap.style.display = 'none';
+    btn.textContent = '👁 Veure PDF';
+  }
+}
+
+function resetAll() {
+  lines = []; orderData = {}; pettMode = null; selectedAddr = 'pdf';
+  window._pendingMappings = null;
+  window._pdfBlob = null;
+  document.getElementById('file-input').value = '';
+  document.getElementById('progress-wrap').classList.remove('visible');
+  document.getElementById('save-map-prompt').style.display = 'none';
+  document.getElementById('pdf-preview-wrap').style.display = 'none';
+  document.getElementById('pdf-preview-btn').style.display = 'none';
+  document.getElementById('pdf-preview-btn').textContent = '👁 Veure PDF';
+  // Remove any duplicate warnings
+  document.querySelectorAll('#step-validate > .notice.warn').forEach(n => n.remove());
+  showStep('step-upload');
+}
+
+function fmt(n) { return (Math.round(n * 100) / 100).toFixed(2); }
+function esc(s) { return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// ─── CLIENT PROFILES (Codi A3 + coeficient per client) ──
+function getClientProfiles() {
+  try { return JSON.parse(localStorage.getItem('lkn_client_profiles') || '{}'); } catch { return {}; }
+}
+function saveClientProfiles(p) { localStorage.setItem('lkn_client_profiles', JSON.stringify(p)); }
+
+function getClientProfile(name) {
+  if (!name) return null;
+  const profiles = getClientProfiles();
+  return profiles[name.toUpperCase().trim()] || null;
+}
+
+function saveClientProfile(name, a3Code, coef) {
+  if (!name) return;
+  const profiles = getClientProfiles();
+  const key = name.toUpperCase().trim();
+  profiles[key] = { a3Code: a3Code || '', coef: coef || null, lastUsed: new Date().toISOString() };
+  saveClientProfiles(profiles);
+}
+
+// ─── CODE MAPPING (Millora 1) ────────────────────────────
+function getCodeMap() {
+  try { return JSON.parse(localStorage.getItem('lkn_code_map') || '{}'); } catch { return {}; }
+}
+function saveCodeMap(map) { localStorage.setItem('lkn_code_map', JSON.stringify(map)); }
+
+function resolveCodeFromMap(clientName, clientCode) {
+  if (!clientCode) return null;
+  const map = getCodeMap();
+  const key = (clientName || '').toUpperCase().trim() + '|' + clientCode.toUpperCase().trim();
+  if (map[key]) return map[key];
+  // Also try without client name (global mapping)
+  const globalKey = '*|' + clientCode.toUpperCase().trim();
+  return map[globalKey] || null;
+}
+
+function addToCodeMap(clientName, clientCode, lknCode) {
+  if (!clientCode || !lknCode) return;
+  const map = getCodeMap();
+  const key = (clientName || '').toUpperCase().trim() + '|' + clientCode.toUpperCase().trim();
+  map[key] = lknCode;
+  saveCodeMap(map);
+}
+
+function showMapModal() {
+  document.getElementById('map-search').value = '';
+  renderMapList('');
+  document.getElementById('modal-map').classList.remove('hidden');
+}
+
+function filterMap() { renderMapList(document.getElementById('map-search').value); }
+
+function renderMapList(query) {
+  const map = getCodeMap();
+  const entries = Object.entries(map);
+  const q = (query || '').toUpperCase();
+  const filtered = entries.filter(([k, v]) => !q || k.includes(q) || v.toUpperCase().includes(q));
+  document.getElementById('map-count').textContent = `${filtered.length} de ${entries.length} correspondències`;
+
+  if (filtered.length === 0) {
+    document.getElementById('map-list').innerHTML = '<div class="hist-empty">Cap correspondència trobada.</div>';
+    return;
+  }
+  let html = '<div class="map-row map-header"><span>Client</span><span>Codi client</span><span>Codi LKN</span><span></span></div>';
+  filtered.forEach(([k, v]) => {
+    const [client, code] = k.split('|');
+    html += `<div class="map-row">
+      <span style="font-size:11px;color:var(--text2);">${esc(client === '*' ? '(global)' : client)}</span>
+      <span>${esc(code)}</span>
+      <span style="font-weight:500;">${esc(v)}</span>
+      <button class="btn-danger-ghost" onclick="deleteMapEntry('${esc(k)}')" title="Esborrar">×</button>
+    </div>`;
+  });
+  document.getElementById('map-list').innerHTML = html;
+}
+
+function deleteMapEntry(key) {
+  const map = getCodeMap();
+  delete map[key];
+  saveCodeMap(map);
+  filterMap();
+}
+
+function exportMap() {
+  const map = getCodeMap();
+  let csv = 'Client,Codi Client,Codi LKN\n';
+  Object.entries(map).forEach(([k, v]) => {
+    const [client, code] = k.split('|');
+    csv += `"${client}","${code}","${v}"\n`;
+  });
+  downloadCSV(csv, 'lkn-correspondencies.csv');
+}
+
+// ─── ORDER HISTORY (Millora 2) ──────────────────────────
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem('lkn_order_history') || '[]'); } catch { return []; }
+}
+function saveHistory(h) { localStorage.setItem('lkn_order_history', JSON.stringify(h)); }
+
+function addToHistory(order) {
+  const h = getHistory();
+  h.unshift(order);
+  // Keep max 500 entries
+  if (h.length > 500) h.length = 500;
+  saveHistory(h);
+}
+
+function showHistoryModal() {
+  document.getElementById('hist-search').value = '';
+  renderHistoryList('');
+  document.getElementById('modal-history').classList.remove('hidden');
+}
+
+function filterHistory() { renderHistoryList(document.getElementById('hist-search').value); }
+
+function renderHistoryList(query) {
+  const h = getHistory();
+  const q = (query || '').toUpperCase();
+  const filtered = h.filter(o => !q ||
+    (o.client||'').toUpperCase().includes(q) ||
+    (o.ref||'').toUpperCase().includes(q) ||
+    (o.budget||'').toUpperCase().includes(q) ||
+    (o.filename||'').toUpperCase().includes(q)
+  );
+  if (filtered.length === 0) {
+    document.getElementById('hist-list').innerHTML = '<div class="hist-empty">Cap comanda a l\'historial.</div>';
+    return;
+  }
+  let html = '';
+  filtered.forEach((o, i) => {
+    const sc = {1:'Terrendis',2:'Multi prov. A',3:'Multi prov. B',4:'Agent',5:'JCI'}[o.scenario] || '—';
+    html += `<div class="hist-item">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;">
+        <span class="hist-client">${esc(o.client || '—')}</span>
+        <span class="hist-date">${esc(o.date || '—')}</span>
+      </div>
+      <div class="hist-detail">
+        Ref: ${esc(o.ref||'—')} · Pressupost: ${esc(o.budget||'—')} · ${o.lineCount||0} línies · ${o.total||'0.00'} € · ${sc}
+      </div>
+      <div class="hist-detail" style="color:var(--text3);">${esc(o.filename||'')}</div>
+    </div>`;
+  });
+  document.getElementById('hist-list').innerHTML = html;
+}
+
+function exportHistory() {
+  const h = getHistory();
+  if (!h.length) { alert('L\'historial és buit.'); return; }
+  let csv = 'Data,Client,Codi A3,Referencia,Pressupost,Linies,Total,Escenari,Fitxer\n';
+  h.forEach(o => {
+    csv += `"${o.date}","${o.client}","${o.clientCode||''}","${o.ref}","${o.budget}",${o.lineCount},"${o.total}","${o.scenario}","${o.filename}"\n`;
+  });
+  downloadCSV(csv, 'lkn-historial-comandes.csv');
+}
+
+function downloadCSV(content, filename) {
+  const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+// ─── EXPORT A3-READY (Millora 3) ────────────────────────
+function exportA3() {
+  const clientCode = document.getElementById('v-code').value.trim();
+  const clientName = document.getElementById('v-name').value.trim();
+  const orderRef = document.getElementById('v-ref').value.trim();
+  const budgetRef = document.getElementById('v-budget').value.trim();
+  const addr = selectedAddr === 'new' ? 'NOVA' : (document.getElementById('v-addr-detected').textContent || '');
+  const date = new Date().toLocaleDateString('es-ES');
+  const supplier = getSupplier();
+
+  let csv = '# COMANDA DE VENDA - LKN Sistemes\n';
+  csv += `# Data:;${date}\n`;
+  csv += `# Client:;${clientCode};${clientName}\n`;
+  csv += `# Referència client:;${orderRef}\n`;
+  csv += `# Pressupost LKN:;${budgetRef}\n`;
+  csv += `# Adreça entrega:;${addr}\n`;
+  csv += `# Escenari:;${{1:'CC — Terrendis',2:'CC — Multi prov. A',3:'CC — Multi prov. B',4:'Agent comercial',5:'Johnson Controls'}[scenario]}\n`;
+  csv += `# Proveïdor compra:;${supplier}\n`;
+  csv += '#\n';
+
+  csv += 'Artículo;Descripción;Ud.;Unidades;Precio venda;Dto.1 %;Base\n';
+  lines.forEach(l => {
+    const base = (l.quantity * l.unit_price).toFixed(2);
+    const dto = getLineDtoPercent(l);
+    csv += `${l.code||''};${(l.description||'').replace(/;/g,',')};${l.unit||'ut'};${l.quantity};${l.unit_price.toFixed(2)};${dto};${base}\n`;
+  });
+
+  const total = lines.reduce((s, l) => s + l.quantity * l.unit_price, 0);
+  csv += `;;;;;;;${total.toFixed(2)}\n`;
+
+  const filename = `A3_VENDA_${clientCode || 'comanda'}_${orderRef || date.replace(/\//g,'-')}.csv`;
+  downloadCSV(csv, filename);
+}
+
+function exportA3Compra() {
+  const clientCode = document.getElementById('v-code').value.trim();
+  const clientName = document.getElementById('v-name').value.trim();
+  const orderRef = document.getElementById('v-ref').value.trim();
+  const budgetRef = document.getElementById('v-budget').value.trim();
+  const date = new Date().toLocaleDateString('es-ES');
+  const supplier = getSupplier();
+  const supplierCode = getSupplierCode();
+
+  let csv = '# COMANDA DE COMPRA - LKN Sistemes\n';
+  csv += `# Data:;${date}\n`;
+  csv += `# Proveïdor:;${supplierCode};${supplier}\n`;
+  csv += `# Client destí:;${clientCode};${clientName}\n`;
+  csv += `# Referència client:;${orderRef}\n`;
+  csv += `# Pressupost LKN:;${budgetRef}\n`;
+  csv += '#\n';
+
+  csv += 'Artículo;Descripción;Ud.;Unidades;Precio compra;Base compra\n';
+  let totalCompra = 0;
+  lines.forEach(l => {
+    const buyUnit = getLineBuyPrice(l);
+    const baseCompra = (l.quantity * buyUnit).toFixed(2);
+    totalCompra += l.quantity * buyUnit;
+    csv += `${l.code||''};${(l.description||'').replace(/;/g,',')};${l.unit||'ut'};${l.quantity};${buyUnit.toFixed(2)};${baseCompra}\n`;
+  });
+
+  csv += `;;;;;;${totalCompra.toFixed(2)}\n`;
+
+  const filename = `A3_COMPRA_${supplierCode || 'prov'}_${orderRef || date.replace(/\//g,'-')}.csv`;
+  downloadCSV(csv, filename);
+}
+
+function getSupplierCode() {
+  if (scenario === 5) return '2262';
+  const cn = (orderData.client_name || '').toUpperCase();
+  if (cn.includes('PETTINAROLI')) return '2262';
+  return '';
+}
+
+function getLineBuyPrice(l) {
+  if (scenario === 4) return l.unit_price * orderData.coef;
+  if (scenario === 5) {
+    if (l._ports) return 15;
+    const d = getJCIDiscount(l.code, l.description);
+    return d > 0 ? l.unit_price * (1 - d/100) : l.unit_price;
+  }
+  if (pettMode === 'net') {
+    const m = parseFloat(document.getElementById('pett-mult').value) || 0.89;
+    return l.unit_price * m;
+  }
+  if (pettMode === 'dto') {
+    const d = parseInt(document.getElementById('pett-dto-sel').value) || 5;
+    return l.unit_price * (1 - d/100);
+  }
+  return l.unit_price;
+}
+
+function getLineDtoPercent(l) {
+  if (scenario === 4) return 0;
+  if (scenario === 5) {
+    if (l._ports) return 0;
+    return getJCIDiscount(l.code, l.description);
+  }
+  if (pettMode === 'dto') return parseInt(document.getElementById('pett-dto-sel').value) || 5;
+  return l.discount || 0;
+}
+
+// ═══════════════════════════════════════════════════════════
+// KV SYNC — Sincronització amb Cloudflare KV
+// ═══════════════════════════════════════════════════════════
+const KV_URL = 'https://lkn-proxy.ffontsere.workers.dev/kv';
+const KV_AUTH = 'lkn2026segur'; // <-- POSA AQUÍ el teu AUTH_TOKEN (el mateix que al Worker)
+
+const kvSync = {
+  // Carregar totes les dades des de KV al iniciar
+  async load() {
+    const indicator = document.getElementById('sync-status');
+    const indicatorEl = document.getElementById('sync-indicator');
+    try {
+      if (indicator) indicator.textContent = 'Sincronitzant...';
+      const keys = { codes: 'lkn_code_map', history: 'lkn_order_history', clients: 'lkn_client_profiles' };
+      for (const [kvKey, lsKey] of Object.entries(keys)) {
+        try {
+          const resp = await fetch(`${KV_URL}/${kvKey}`, { headers: { 'X-Auth-Token': KV_AUTH } });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.value !== null) {
+              // KV té dades — usar-les (prioritat KV)
+              localStorage.setItem(lsKey, JSON.stringify(data.value));
+            } else {
+              // KV buit — pujar localStorage actual a KV (migració)
+              const local = localStorage.getItem(lsKey);
+              if (local) {
+                await fetch(`${KV_URL}/${kvKey}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json', 'X-Auth-Token': KV_AUTH },
+                  body: local,
+                });
+              }
+            }
+          }
+        } catch (e) { console.warn('KV sync ' + kvKey + ':', e); }
+      }
+      if (indicator) indicator.textContent = '● Sincronitzat';
+      if (indicatorEl) { indicatorEl.className = 'api-status ok'; }
+      setTimeout(() => { if (indicator) indicator.textContent = '● Connectat'; }, 2000);
+    } catch (e) {
+      console.warn('KV sync error:', e);
+      if (indicator) indicator.textContent = '● Offline';
+    }
+  },
+
+  // Pujar una clau específica a KV (cridar després de cada escriptura)
+  async push(kvKey) {
+    const keyMap = { codes: 'lkn_code_map', history: 'lkn_order_history', clients: 'lkn_client_profiles' };
+    const lsKey = keyMap[kvKey];
+    if (!lsKey) return;
+    const data = localStorage.getItem(lsKey);
+    if (!data) return;
+    try {
+      await fetch(`${KV_URL}/${kvKey}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Auth-Token': KV_AUTH },
+        body: data,
+      });
+    } catch (e) { console.warn('KV push ' + kvKey + ':', e); }
+  },
+};
+
+// Enganxar sync a les funcions existents de desar
+const _origSaveCodeMap = saveCodeMap;
+saveCodeMap = function(map) { _origSaveCodeMap(map); kvSync.push('codes'); };
+
+const _origSaveHistory = saveHistory;
+saveHistory = function(h) { _origSaveHistory(h); kvSync.push('history'); };
+
+const _origSaveClientProfiles = saveClientProfiles;
+saveClientProfiles = function(p) { _origSaveClientProfiles(p); kvSync.push('clients'); };
+
+// ─── CHECK FOR DUPLICATE ORDER ──────────────────────────
+function isDuplicateOrder(ref, client) {
+  if (!ref) return false;
+  const h = getHistory();
+  return h.some(o => o.ref === ref && (o.client||'').toUpperCase() === (client||'').toUpperCase());
+}
+</script>
+</body>
+</html>
