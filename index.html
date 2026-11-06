@@ -1643,30 +1643,30 @@ function exportA3() {
   const clientCode = document.getElementById('v-code').value.trim();
   const clientName = document.getElementById('v-name').value.trim();
   const orderRef   = document.getElementById('v-ref').value.trim();
-  const budgetRef  = document.getElementById('v-budget').value.trim();
   const addr       = selectedAddr === 'new' ? 'NOVA' : (document.getElementById('v-addr-detected').textContent || '');
   const date       = new Date().toLocaleDateString('es-ES');
-  const supplier   = getSupplier();
-  const scLabel    = {1:'CC — Terrendis',2:'CC — Multi prov. A',3:'CC — Multi prov. B',4:'Agent comercial',5:'Johnson Controls'}[scenario];
 
+  // Format de la comanda de venda (sense columna Ut.):
+  //   files 2-7 = capçalera; 6 (Transportista) i 7 (Portes) es deixen en blanc
+  //   perquè l'usuari les ompli a mà. Taula: A Article · B Descripció ·
+  //   C Unitats · D Preu venda · E Total línia.
   const aoa = [
     ['COMANDA DE VENDA — LKN Sistemes'],
-    ['Data:', date],
-    ['Client:', clientCode, clientName],
+    ['Client:', clientName],
+    ['Codi Client', clientCode],
     ['Referència client:', orderRef],
-    ['Pressupost LKN:', budgetRef],
     ['Adreça entrega:', addr],
-    ['Escenari:', scLabel],
-    ['Proveïdor compra:', supplier],
+    ['Transportista:'],
+    ['Portes:'],
     [],
-    ['Article', 'Descripció', 'Ut.', 'Unitats', 'Preu venda', 'Total línia'],
+    ['Article', 'Descripció', 'Unitats', 'Preu venda', 'Total línia'],
   ];
-  const headerRow   = aoa.length;            // fila 1-based de la capçalera
+  const headerRow   = aoa.length;            // fila 1-based de la capçalera (9)
   const firstData   = headerRow + 1;
-  lines.forEach(l => aoa.push([l.code||'', l.description||'', l.unit||'UN', l.quantity||0, l.unit_price||0, null]));
+  lines.forEach(l => aoa.push([l.code||'', l.description||'', l.quantity||0, l.unit_price||0, null]));
   const lastData    = headerRow + lines.length;
   aoa.push([]);
-  aoa.push(['', '', '', '', 'TOTAL', null]);
+  aoa.push(['', '', '', 'TOTAL', null]);
   const totalRow    = aoa.length;
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -1675,25 +1675,26 @@ function exportA3() {
   for (let i = 0; i < lines.length; i++) {
     const r = firstData + i, l = lines[i];
     const v = (l.quantity||0) * (l.unit_price||0);
-    ws['F' + r] = { t: 'n', f: `D${r}*E${r}`, v: v, z: _XLS_CURRENCY_FMT };
-    if (ws['E' + r]) ws['E' + r].z = _XLS_CURRENCY_FMT;
+    ws['E' + r] = { t: 'n', f: `C${r}*D${r}`, v: v, z: _XLS_CURRENCY_FMT };
+    if (ws['D' + r]) ws['D' + r].z = _XLS_CURRENCY_FMT;
   }
   if (lines.length > 0) {
     const tot = lines.reduce((s,l) => s + (l.quantity||0)*(l.unit_price||0), 0);
-    ws['F' + totalRow] = { t: 'n', f: `SUM(F${firstData}:F${lastData})`, v: tot, z: _XLS_CURRENCY_FMT };
+    ws['E' + totalRow] = { t: 'n', f: `SUM(E${firstData}:E${lastData})`, v: tot, z: _XLS_CURRENCY_FMT };
   }
 
-  // Amplades
-  ws['!cols'] = [{wch:14},{wch:50},{wch:6},{wch:9},{wch:13},{wch:14}];
+  // Amplades i alçada del títol (com l'Excel de referència)
+  ws['!cols'] = [{wch:14},{wch:63.28},{wch:9},{wch:13},{wch:14}];
+  ws['!rows'] = [{ hpt: 18.75 }];
 
   // Estils
   if (ws['A1']) ws['A1'].s = _XLS_TITLE_STYLE;
-  for (let r = 2; r <= 8; r++) if (ws['A' + r]) ws['A' + r].s = _XLS_META_STYLE;
-  ['A','B','C','D','E','F'].forEach(c => { const ref = c + headerRow; if (ws[ref]) ws[ref].s = _XLS_HEADER_STYLE; });
-  ['E','F'].forEach(c => { const ref = c + totalRow; if (ws[ref]) ws[ref].s = _XLS_TOTAL_STYLE; });
+  for (let r = 2; r <= 7; r++) if (ws['A' + r]) ws['A' + r].s = _XLS_META_STYLE;
+  ['A','B','C','D','E'].forEach(c => { const ref = c + headerRow; if (ws[ref]) ws[ref].s = _XLS_HEADER_STYLE; });
+  ['D','E'].forEach(c => { const ref = c + totalRow; if (ws[ref]) ws[ref].s = _XLS_TOTAL_STYLE; });
 
   // Fusió del títol
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Comanda venda');
